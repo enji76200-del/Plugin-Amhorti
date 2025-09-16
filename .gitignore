@@ -1,0 +1,35 @@
+# WordPress Plugin .gitignore
+
+# Test files
+test-plugin.php
+demo.html
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Node modules (if any)
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# WordPress core files (if accidentally included)
+wp-config.php
+wp-content/uploads/
+wp-content/cache/
+
+# Database dumps
+*.sql
+*.sql.gz
