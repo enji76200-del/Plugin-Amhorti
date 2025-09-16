@@ -1,0 +1,218 @@
+/* Amhorti Schedule Admin Styles */
+
+.amhorti-admin-content {
+    max-width: 1200px;
+}
+
+.amhorti-admin-content .card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    margin: 20px 0;
+    padding: 20px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.amhorti-admin-content .card h2 {
+    margin-top: 0;
+    color: #23282d;
+    font-size: 18px;
+    font-weight: 600;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.amhorti-admin-content .form-table th {
+    width: 200px;
+    padding: 15px 10px 15px 0;
+    vertical-align: top;
+}
+
+.amhorti-admin-content .form-table td {
+    padding: 15px 0;
+}
+
+.amhorti-admin-content .regular-text {
+    width: 300px;
+}
+
+.amhorti-admin-content .small-text {
+    width: 60px;
+}
+
+/* Tables */
+.amhorti-admin-content .wp-list-table {
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.amhorti-admin-content .wp-list-table th {
+    background: #f9f9f9;
+    font-weight: 600;
+    color: #23282d;
+    border-bottom: 1px solid #ccd0d4;
+    padding: 12px;
+}
+
+.amhorti-admin-content .wp-list-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f1;
+    vertical-align: middle;
+}
+
+.amhorti-admin-content .wp-list-table tr:last-child td {
+    border-bottom: none;
+}
+
+.amhorti-admin-content .wp-list-table .button {
+    margin-right: 5px;
+}
+
+/* Buttons */
+.amhorti-admin-content .button {
+    border-radius: 3px;
+    font-size: 13px;
+    padding: 6px 12px;
+    text-decoration: none;
+    transition: all 0.1s ease-in-out;
+}
+
+.amhorti-admin-content .button-primary {
+    background: #0073aa;
+    border-color: #0073aa;
+    color: #fff;
+}
+
+.amhorti-admin-content .button-primary:hover {
+    background: #005a87;
+    border-color: #005a87;
+}
+
+.amhorti-admin-content .button-link-delete {
+    color: #a00;
+}
+
+.amhorti-admin-content .button-link-delete:hover {
+    color: #dc3232;
+}
+
+/* Form elements */
+.amhorti-admin-content input[type="text"],
+.amhorti-admin-content input[type="number"],
+.amhorti-admin-content input[type="time"],
+.amhorti-admin-content select {
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 6px 8px;
+    font-size: 14px;
+    color: #32373c;
+    background: #fff;
+}
+
+.amhorti-admin-content input[type="text"]:focus,
+.amhorti-admin-content input[type="number"]:focus,
+.amhorti-admin-content input[type="time"]:focus,
+.amhorti-admin-content select:focus {
+    border-color: #0073aa;
+    outline: none;
+    box-shadow: 0 0 0 1px #0073aa;
+}
+
+/* Welcome page styles */
+.amhorti-admin-content h3 {
+    color: #23282d;
+    font-size: 16px;
+    margin: 20px 0 10px 0;
+}
+
+.amhorti-admin-content ul,
+.amhorti-admin-content ol {
+    margin: 10px 0 20px 20px;
+}
+
+.amhorti-admin-content li {
+    margin: 5px 0;
+    line-height: 1.5;
+}
+
+.amhorti-admin-content code {
+    background: #f1f1f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 13px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .amhorti-admin-content .form-table th,
+    .amhorti-admin-content .form-table td {
+        display: block;
+        width: 100%;
+        padding: 10px 0;
+    }
+    
+    .amhorti-admin-content .form-table th {
+        border-bottom: none;
+        font-weight: 600;
+    }
+    
+    .amhorti-admin-content .regular-text {
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .amhorti-admin-content .wp-list-table {
+        font-size: 12px;
+    }
+    
+    .amhorti-admin-content .wp-list-table th,
+    .amhorti-admin-content .wp-list-table td {
+        padding: 8px;
+    }
+}
+
+/* Success/Error messages in admin */
+.amhorti-admin-message {
+    padding: 12px;
+    margin: 15px 0;
+    border-left: 4px solid;
+    background: #fff;
+}
+
+.amhorti-admin-message.success {
+    border-left-color: #46b450;
+    color: #00a32a;
+}
+
+.amhorti-admin-message.error {
+    border-left-color: #dc3232;
+    color: #d63638;
+}
+
+/* Loading states */
+.amhorti-admin-loading {
+    opacity: 0.6;
+    pointer-events: none;
+    position: relative;
+}
+
+.amhorti-admin-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0073aa;
+    border-radius: 50%;
+    animation: amhorti-admin-spin 1s linear infinite;
+}
+
+@keyframes amhorti-admin-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
