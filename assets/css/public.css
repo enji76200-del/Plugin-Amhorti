@@ -297,3 +297,71 @@
 .amhorti-table-container::-webkit-scrollbar-thumb:hover {
     background: #0056b3;
 }
+
+/* Inactive day styling */
+.booking-cell.inactive-day {
+    background: #f8f9fa !important;
+    color: #6c757d;
+    position: relative;
+}
+
+.booking-cell.inactive-day:before {
+    content: '∅';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 16px;
+    color: #dee2e6;
+}
+
+/* Improved disabled cell styling */
+.booking-cell.disabled {
+    background: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Date range indicator */
+.booking-cell[data-date]:before {
+    content: attr(data-date);
+    position: absolute;
+    top: -20px;
+    left: 0;
+    font-size: 10px;
+    color: #6c757d;
+    display: none;
+}
+
+/* Better visual feedback for editable cells */
+.booking-cell.editable:hover {
+    background: #e3f2fd;
+    border-color: #2196f3;
+    transition: all 0.2s ease;
+}
+
+.booking-cell.editable:focus {
+    outline: 2px solid #2196f3;
+    outline-offset: -2px;
+    background: #fff;
+}
+
+/* Loading state for table updates */
+.amhorti-table-wrapper.loading {
+    position: relative;
+    opacity: 0.7;
+}
+
+.amhorti-table-wrapper.loading:after {
+    content: 'Chargement...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px 20px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 10;
+}

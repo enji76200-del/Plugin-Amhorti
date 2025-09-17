@@ -15,6 +15,7 @@ class Amhorti_Public {
         add_action('wp_ajax_nopriv_amhorti_save_booking', array($this, 'ajax_save_booking'));
         add_action('wp_ajax_amhorti_get_table_data', array($this, 'ajax_get_table_data'));
         add_action('wp_ajax_nopriv_amhorti_get_table_data', array($this, 'ajax_get_table_data'));
+        add_action('wp_head', array($this, 'inject_custom_css'));
     }
     
     /**
@@ -113,12 +114,26 @@ class Amhorti_Public {
             'Sunday' => 'dimanche'
         );
         
+        // Get sheet configuration
+        $sheet_config = $this->database->get_sheet_config($sheet_id);
+        $active_days = array();
+        if ($sheet_config && $sheet_config->days_config) {
+            $active_days = json_decode($sheet_config->days_config, true) ?: array();
+        }
+        
         // Get all time slots for the week
         $all_time_slots = array();
         foreach ($dates as $date) {
             $day_name = date('l', strtotime($date));
             $french_day = $french_days[$day_name];
-            $day_schedule = $this->database->get_schedule_for_day($french_day);
+            
+            // Skip days that are not active for this sheet
+            if (!empty($active_days) && !in_array($french_day, $active_days)) {
+                continue;
+            }
+            
+            // Get sheet-specific schedule or fall back to global
+            $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
             
             foreach ($day_schedule as $slot) {
                 $time_key = $slot->time_start . '-' . $slot->time_end;
@@ -168,7 +183,13 @@ class Amhorti_Public {
                     foreach ($dates as $date) {
                         $day_name = date('l', strtotime($date));
                         $french_day = $french_days[$day_name];
-                        $day_schedule = $this->database->get_schedule_for_day($french_day);
+                        
+                        // Skip inactive days for this sheet
+                        if (!empty($active_days) && !in_array($french_day, $active_days)) {
+                            continue;
+                        }
+                        
+                        $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
                         
                         foreach ($day_schedule as $slot) {
                             if ($slot->time_start == $start_time && $slot->time_end == $end_time) {
@@ -192,7 +213,19 @@ class Amhorti_Public {
                             <?php 
                             $day_name = date('l', strtotime($date));
                             $french_day = $french_days[$day_name];
-                            $day_schedule = $this->database->get_schedule_for_day($french_day);
+                            
+                            // Check if this day is active for this sheet
+                            $day_is_active = empty($active_days) || in_array($french_day, $active_days);
+                            
+                            if (!$day_is_active) {
+                                // Day is not active for this sheet
+                                ?>
+                                <td class="booking-cell disabled inactive-day"></td>
+                                <?php
+                                continue;
+                            }
+                            
+                            $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
                             
                             // Check if this time slot exists for this day
                             $slot_exists = false;
@@ -289,6 +322,16 @@ class Amhorti_Public {
             wp_send_json_success();
         } else {
             wp_send_json_error('Failed to save booking');
+        }
+    }
+    
+    /**
+     * Inject custom CSS into page head
+     */
+    public function inject_custom_css() {
+        $custom_css = $this->database->get_custom_css();
+        if ($custom_css) {
+            echo "<style type=\"text/css\" id=\"amhorti-custom-css\">\n" . $custom_css . "\n</style>\n";
         }
     }
 }

@@ -16,6 +16,9 @@ class Amhorti_Admin {
         add_action('wp_ajax_amhorti_admin_save_schedule', array($this, 'ajax_save_schedule'));
         add_action('wp_ajax_amhorti_admin_delete_sheet', array($this, 'ajax_delete_sheet'));
         add_action('wp_ajax_amhorti_admin_delete_schedule', array($this, 'ajax_delete_schedule'));
+        add_action('wp_ajax_amhorti_admin_update_sheet', array($this, 'ajax_update_sheet'));
+        add_action('wp_ajax_amhorti_admin_save_css', array($this, 'ajax_save_css'));
+        add_action('wp_ajax_amhorti_admin_get_css', array($this, 'ajax_get_css'));
     }
     
     /**
@@ -48,6 +51,24 @@ class Amhorti_Admin {
             'manage_options',
             'amhorti-schedules',
             array($this, 'schedules_page')
+        );
+        
+        add_submenu_page(
+            'amhorti-schedule',
+            'Configuration Avancée',
+            'Configuration Avancée',
+            'manage_options',
+            'amhorti-advanced',
+            array($this, 'advanced_page')
+        );
+        
+        add_submenu_page(
+            'amhorti-schedule',
+            'Éditeur CSS',
+            'Éditeur CSS',
+            'manage_options',
+            'amhorti-css',
+            array($this, 'css_editor_page')
         );
     }
     
@@ -435,5 +456,427 @@ class Amhorti_Admin {
         } else {
             wp_send_json_error('Failed to delete schedule');
         }
+    }
+    
+    /**
+     * Advanced configuration page
+     */
+    public function advanced_page() {
+        $sheets = $this->database->get_sheets();
+        $days_options = array(
+            'lundi' => 'Lundi',
+            'mardi' => 'Mardi', 
+            'mercredi' => 'Mercredi',
+            'jeudi' => 'Jeudi',
+            'vendredi' => 'Vendredi',
+            'samedi' => 'Samedi',
+            'dimanche' => 'Dimanche'
+        );
+        
+        ?>
+        <div class="wrap">
+            <h1>Configuration Avancée des Feuilles</h1>
+            
+            <div class="amhorti-admin-content">
+                <?php foreach ($sheets as $sheet): ?>
+                <div class="card">
+                    <h2>Configuration de "<?php echo esc_html($sheet->name); ?>"</h2>
+                    <form class="amhorti-sheet-config-form" data-sheet-id="<?php echo esc_attr($sheet->id); ?>">
+                        <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row">Nom de la Feuille</th>
+                                <td>
+                                    <input type="text" name="sheet_name" value="<?php echo esc_attr($sheet->name); ?>" class="regular-text" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Jours de la Semaine Actifs</th>
+                                <td>
+                                    <?php 
+                                    $active_days = json_decode($sheet->days_config, true) ?: array_keys($days_options);
+                                    foreach ($days_options as $day_key => $day_label): ?>
+                                    <label>
+                                        <input type="checkbox" name="active_days[]" value="<?php echo esc_attr($day_key); ?>" 
+                                               <?php checked(in_array($day_key, $active_days)); ?> />
+                                        <?php echo esc_html($day_label); ?>
+                                    </label><br>
+                                    <?php endforeach; ?>
+                                </td>
+                            </tr>
+                        </table>
+                        <p class="submit">
+                            <input type="submit" class="button button-primary" value="Sauvegarder Configuration" />
+                        </p>
+                    </form>
+                    
+                    <h3>Horaires Spécifiques à cette Feuille</h3>
+                    <form class="amhorti-sheet-schedule-form" data-sheet-id="<?php echo esc_attr($sheet->id); ?>">
+                        <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row">Jour</th>
+                                <td>
+                                    <select name="day_of_week" required>
+                                        <?php foreach ($days_options as $day_key => $day_label): ?>
+                                        <option value="<?php echo esc_attr($day_key); ?>"><?php echo esc_html($day_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Heure de Début</th>
+                                <td><input type="time" name="time_start" required /></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Heure de Fin</th>
+                                <td><input type="time" name="time_end" required /></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Nombre de Créneaux</th>
+                                <td><input type="number" name="slot_count" value="2" min="1" max="10" required /></td>
+                            </tr>
+                        </table>
+                        <p class="submit">
+                            <input type="submit" class="button" value="Ajouter Horaire" />
+                        </p>
+                    </form>
+                    
+                    <div class="amhorti-sheet-schedules">
+                        <h4>Horaires Existants</h4>
+                        <?php $this->display_sheet_schedules($sheet->id); ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            $('.amhorti-sheet-config-form').on('submit', function(e) {
+                e.preventDefault();
+                var form = $(this);
+                var sheetId = form.data('sheet-id');
+                var activeDays = [];
+                form.find('input[name="active_days[]"]:checked').each(function() {
+                    activeDays.push($(this).val());
+                });
+                
+                var data = {
+                    action: 'amhorti_admin_update_sheet',
+                    sheet_id: sheetId,
+                    sheet_name: form.find('input[name="sheet_name"]').val(),
+                    active_days: activeDays,
+                    nonce: form.find('#amhorti_admin_nonce').val()
+                };
+                
+                $.post(ajaxurl, data, function(response) {
+                    if (response.success) {
+                        alert('Configuration sauvegardée avec succès !');
+                    } else {
+                        alert('Erreur : ' + response.data);
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
+    }
+    
+    /**
+     * CSS Editor page
+     */
+    public function css_editor_page() {
+        ?>
+        <div class="wrap">
+            <h1>Éditeur CSS</h1>
+            
+            <div class="amhorti-admin-content">
+                <div class="amhorti-css-editor-container">
+                    <div class="amhorti-css-editor-panel">
+                        <h2>Éditeur CSS Personnalisé</h2>
+                        <form id="amhorti-css-form">
+                            <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
+                            <textarea id="amhorti-css-editor" name="css_content" rows="20" style="width: 100%; font-family: monospace;">/* Votre CSS personnalisé ici */
+.amhorti-schedule-container {
+    /* Styles personnalisés pour le conteneur principal */
+}
+
+.amhorti-schedule-table {
+    /* Styles personnalisés pour le tableau */
+}
+
+.booking-cell {
+    /* Styles personnalisés pour les cellules de réservation */
+}
+
+.booking-cell.editable {
+    /* Styles pour les cellules éditables */
+}
+
+.booking-cell.disabled {
+    /* Styles pour les cellules désactivées */
+}
+
+.amhorti-tab {
+    /* Styles pour les onglets */
+}
+
+.amhorti-nav-btn {
+    /* Styles pour les boutons de navigation */
+}</textarea>
+                            <p class="submit">
+                                <input type="submit" class="button button-primary" value="Sauvegarder CSS" />
+                                <button type="button" id="amhorti-css-preview" class="button">Prévisualiser</button>
+                                <button type="button" id="amhorti-css-reset" class="button">Réinitialiser</button>
+                            </p>
+                        </form>
+                    </div>
+                    
+                    <div class="amhorti-css-preview-panel">
+                        <h2>Aperçu en Temps Réel</h2>
+                        <div id="amhorti-preview-container">
+                            <div class="amhorti-schedule-container" style="max-width: 100%; margin: 20px 0;">
+                                <div class="amhorti-tabs">
+                                    <button class="amhorti-tab active">Feuille 1</button>
+                                    <button class="amhorti-tab">Feuille 2</button>
+                                </div>
+                                <table class="amhorti-schedule-table" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr>
+                                            <th class="time-header">Horaires</th>
+                                            <th class="date-header">Lundi 18/11</th>
+                                            <th class="date-header">Mardi 19/11</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="time-cell">09:00 - 10:30</td>
+                                            <td class="booking-cell editable" contenteditable="true">Exemple</td>
+                                            <td class="booking-cell disabled"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div class="amhorti-navigation">
+                                    <button class="amhorti-nav-btn">← Semaine précédente</button>
+                                    <button class="amhorti-nav-btn">Aujourd'hui</button>
+                                    <button class="amhorti-nav-btn">Semaine suivante →</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <style>
+        .amhorti-css-editor-container {
+            display: flex;
+            gap: 20px;
+        }
+        .amhorti-css-editor-panel,
+        .amhorti-css-preview-panel {
+            flex: 1;
+        }
+        .amhorti-css-preview-panel {
+            border: 1px solid #ddd;
+            padding: 15px;
+            background: #f9f9f9;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        #amhorti-preview-container {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        </style>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            // Load existing CSS
+            $.post(ajaxurl, {
+                action: 'amhorti_admin_get_css',
+                nonce: $('#amhorti_admin_nonce').val()
+            }, function(response) {
+                if (response.success && response.data.css) {
+                    $('#amhorti-css-editor').val(response.data.css);
+                    updatePreview();
+                }
+            });
+            
+            // Live preview
+            $('#amhorti-css-editor').on('input', function() {
+                updatePreview();
+            });
+            
+            // Save CSS
+            $('#amhorti-css-form').on('submit', function(e) {
+                e.preventDefault();
+                var data = {
+                    action: 'amhorti_admin_save_css',
+                    css_content: $('#amhorti-css-editor').val(),
+                    nonce: $('#amhorti_admin_nonce').val()
+                };
+                
+                $.post(ajaxurl, data, function(response) {
+                    if (response.success) {
+                        alert('CSS sauvegardé avec succès !');
+                    } else {
+                        alert('Erreur : ' + response.data);
+                    }
+                });
+            });
+            
+            // Reset CSS
+            $('#amhorti-css-reset').on('click', function() {
+                if (confirm('Êtes-vous sûr de vouloir réinitialiser le CSS ?')) {
+                    $('#amhorti-css-editor').val('/* CSS réinitialisé */');
+                    updatePreview();
+                }
+            });
+            
+            function updatePreview() {
+                var css = $('#amhorti-css-editor').val();
+                $('#amhorti-preview-container').find('style').remove();
+                $('#amhorti-preview-container').append('<style>' + css + '</style>');
+            }
+        });
+        </script>
+        <?php
+    }
+    
+    /**
+     * Display schedules for a specific sheet
+     */
+    private function display_sheet_schedules($sheet_id) {
+        global $wpdb;
+        $table_schedules = $wpdb->prefix . 'amhorti_schedules';
+        
+        $schedules = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table_schedules WHERE sheet_id = %d AND is_active = 1 ORDER BY day_of_week, time_start",
+            $sheet_id
+        ));
+        
+        if (empty($schedules)) {
+            echo '<p>Aucun horaire spécifique configuré pour cette feuille.</p>';
+            return;
+        }
+        
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>Jour</th>
+                    <th>Heure de Début</th>
+                    <th>Heure de Fin</th>
+                    <th>Créneaux</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($schedules as $schedule): ?>
+                <tr>
+                    <td><?php echo esc_html(ucfirst($schedule->day_of_week)); ?></td>
+                    <td><?php echo esc_html($schedule->time_start); ?></td>
+                    <td><?php echo esc_html($schedule->time_end); ?></td>
+                    <td><?php echo esc_html($schedule->slot_count); ?></td>
+                    <td>
+                        <button class="button button-link-delete delete-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Supprimer</button>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php
+    }
+    
+    /**
+     * AJAX handler for updating sheets
+     */
+    public function ajax_update_sheet() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+        
+        global $wpdb;
+        $table_sheets = $wpdb->prefix . 'amhorti_sheets';
+        
+        $sheet_id = intval($_POST['sheet_id']);
+        $sheet_name = sanitize_text_field($_POST['sheet_name']);
+        $active_days = isset($_POST['active_days']) ? $_POST['active_days'] : array();
+        
+        $result = $wpdb->update(
+            $table_sheets,
+            array(
+                'name' => $sheet_name,
+                'days_config' => json_encode($active_days)
+            ),
+            array('id' => $sheet_id)
+        );
+        
+        if ($result !== false) {
+            wp_send_json_success();
+        } else {
+            wp_send_json_error('Échec de la mise à jour de la feuille');
+        }
+    }
+    
+    /**
+     * AJAX handler for saving CSS
+     */
+    public function ajax_save_css() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+        
+        global $wpdb;
+        $table_css = $wpdb->prefix . 'amhorti_css_settings';
+        
+        $css_content = wp_unslash($_POST['css_content']);
+        
+        // Check if CSS record exists
+        $existing = $wpdb->get_var("SELECT id FROM $table_css WHERE is_active = 1 LIMIT 1");
+        
+        if ($existing) {
+            $result = $wpdb->update(
+                $table_css,
+                array('css_content' => $css_content),
+                array('id' => $existing)
+            );
+        } else {
+            $result = $wpdb->insert(
+                $table_css,
+                array('css_content' => $css_content)
+            );
+        }
+        
+        if ($result !== false) {
+            wp_send_json_success();
+        } else {
+            wp_send_json_error('Échec de la sauvegarde du CSS');
+        }
+    }
+    
+    /**
+     * AJAX handler for getting CSS
+     */
+    public function ajax_get_css() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+        
+        global $wpdb;
+        $table_css = $wpdb->prefix . 'amhorti_css_settings';
+        
+        $css = $wpdb->get_var("SELECT css_content FROM $table_css WHERE is_active = 1 LIMIT 1");
+        
+        wp_send_json_success(array('css' => $css ?: ''));
     }
 }
