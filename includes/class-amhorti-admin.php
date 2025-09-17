@@ -25,8 +25,8 @@ class Amhorti_Admin {
      */
     public function add_admin_menu() {
         add_menu_page(
-            'Amhorti Schedule',
-            'Amhorti Schedule',
+            'Planification Amhorti',
+            'Planification Amhorti',
             'manage_options',
             'amhorti-schedule',
             array($this, 'admin_page'),
@@ -36,8 +36,8 @@ class Amhorti_Admin {
         
         add_submenu_page(
             'amhorti-schedule',
-            'Manage Sheets',
-            'Manage Sheets',
+            'Gérer les Feuilles',
+            'Gérer les Feuilles',
             'manage_options',
             'amhorti-sheets',
             array($this, 'sheets_page')
@@ -45,8 +45,8 @@ class Amhorti_Admin {
         
         add_submenu_page(
             'amhorti-schedule',
-            'Manage Schedules',
-            'Manage Schedules',
+            'Gérer les Horaires',
+            'Gérer les Horaires',
             'manage_options',
             'amhorti-schedules',
             array($this, 'schedules_page')
@@ -104,42 +104,42 @@ class Amhorti_Admin {
         
         ?>
         <div class="wrap">
-            <h1>Manage Sheets</h1>
+            <h1>Gérer les Feuilles</h1>
             
             <div class="amhorti-admin-content">
                 <div class="card">
-                    <h2>Add New Sheet</h2>
+                    <h2>Ajouter une Nouvelle Feuille</h2>
                     <form id="amhorti-add-sheet-form">
                         <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
                         <table class="form-table">
                             <tr>
-                                <th scope="row">Sheet Name</th>
+                                <th scope="row">Nom de la Feuille</th>
                                 <td>
                                     <input type="text" name="sheet_name" id="sheet_name" required class="regular-text" />
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Sort Order</th>
+                                <th scope="row">Ordre de Tri</th>
                                 <td>
                                     <input type="number" name="sort_order" id="sort_order" value="<?php echo count($sheets) + 1; ?>" class="small-text" />
                                 </td>
                             </tr>
                         </table>
                         <p class="submit">
-                            <input type="submit" name="submit" id="submit" class="button button-primary" value="Add Sheet" />
+                            <input type="submit" name="submit" id="submit" class="button button-primary" value="Ajouter Feuille" />
                         </p>
                     </form>
                 </div>
                 
                 <div class="card">
-                    <h2>Existing Sheets</h2>
+                    <h2>Feuilles Existantes</h2>
                     <table class="wp-list-table widefat fixed striped">
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>Name</th>
-                                <th>Sort Order</th>
-                                <th>Status</th>
+                                <th>Nom</th>
+                                <th>Ordre de Tri</th>
+                                <th>Statut</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -149,10 +149,10 @@ class Amhorti_Admin {
                                 <td><?php echo esc_html($sheet->id); ?></td>
                                 <td><?php echo esc_html($sheet->name); ?></td>
                                 <td><?php echo esc_html($sheet->sort_order); ?></td>
-                                <td><?php echo $sheet->is_active ? 'Active' : 'Inactive'; ?></td>
+                                <td><?php echo $sheet->is_active ? 'Actif' : 'Inactif'; ?></td>
                                 <td>
-                                    <button class="button edit-sheet" data-id="<?php echo esc_attr($sheet->id); ?>">Edit</button>
-                                    <button class="button button-link-delete delete-sheet" data-id="<?php echo esc_attr($sheet->id); ?>">Delete</button>
+                                    <button class="button edit-sheet" data-id="<?php echo esc_attr($sheet->id); ?>">Modifier</button>
+                                    <button class="button button-link-delete delete-sheet" data-id="<?php echo esc_attr($sheet->id); ?>">Supprimer</button>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -212,16 +212,16 @@ class Amhorti_Admin {
         
         ?>
         <div class="wrap">
-            <h1>Manage Schedules</h1>
+            <h1>Gérer les Horaires</h1>
             
             <div class="amhorti-admin-content">
                 <div class="card">
-                    <h2>Add New Time Slot</h2>
+                    <h2>Ajouter un Nouveau Créneau Horaire</h2>
                     <form id="amhorti-add-schedule-form">
                         <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
                         <table class="form-table">
                             <tr>
-                                <th scope="row">Day of Week</th>
+                                <th scope="row">Jour de la Semaine</th>
                                 <td>
                                     <select name="day_of_week" id="day_of_week" required>
                                         <?php foreach ($days as $day): ?>
@@ -231,26 +231,26 @@ class Amhorti_Admin {
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Start Time</th>
+                                <th scope="row">Heure de Début</th>
                                 <td>
                                     <input type="time" name="time_start" id="time_start" required />
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">End Time</th>
+                                <th scope="row">Heure de Fin</th>
                                 <td>
                                     <input type="time" name="time_end" id="time_end" required />
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Number of Slots</th>
+                                <th scope="row">Nombre de Créneaux</th>
                                 <td>
                                     <input type="number" name="slot_count" id="slot_count" value="2" min="1" max="10" required />
                                 </td>
                             </tr>
                         </table>
                         <p class="submit">
-                            <input type="submit" name="submit" id="submit" class="button button-primary" value="Add Time Slot" />
+                            <input type="submit" name="submit" id="submit" class="button button-primary" value="Ajouter Créneau" />
                         </p>
                     </form>
                 </div>
@@ -686,7 +686,7 @@ class Amhorti_Admin {
                     time_start: form.find('input[name="time_start"]').val(),
                     time_end: form.find('input[name="time_end"]').val(),
                     slot_count: form.find('input[name="slot_count"]').val(),
-                    nonce: form.find('input[name*="amhorti_admin_nonce"]').val()
+                    nonce: form.find('input[name="amhorti_admin_nonce"]').val()
                 };
                 
                 $.post(ajaxurl, data, function(response) {
