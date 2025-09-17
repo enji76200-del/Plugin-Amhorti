@@ -46,6 +46,7 @@ class Amhorti_Database {
             name varchar(100) NOT NULL,
             is_active tinyint(1) DEFAULT 1,
             sort_order int(11) DEFAULT 0,
+            days_config text DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id)
         ) $charset_collate;";
@@ -53,13 +54,15 @@ class Amhorti_Database {
         // Schedules table (for admin-configurable time slots)
         $sql_schedules = "CREATE TABLE IF NOT EXISTS {$this->table_schedules} (
             id int(11) NOT NULL AUTO_INCREMENT,
+            sheet_id int(11) DEFAULT NULL,
             day_of_week varchar(20) NOT NULL,
             time_start time NOT NULL,
             time_end time NOT NULL,
             slot_count int(3) NOT NULL DEFAULT 1,
             is_active tinyint(1) DEFAULT 1,
             PRIMARY KEY (id),
-            KEY idx_day (day_of_week)
+            KEY idx_day (day_of_week),
+            KEY idx_sheet_day (sheet_id, day_of_week)
         ) $charset_collate;";
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -67,8 +70,41 @@ class Amhorti_Database {
         dbDelta($sql_sheets);
         dbDelta($sql_schedules);
         
+        // Upgrade existing tables if needed
+        $this->upgrade_tables();
+        
         // Insert default data
         $this->insert_default_data();
+    }
+    
+    /**
+     * Upgrade existing tables with new columns
+     */
+    private function upgrade_tables() {
+        global $wpdb;
+        
+        // Check if days_config column exists in sheets table
+        $column_exists = $wpdb->get_results($wpdb->prepare(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+             WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'days_config'",
+            DB_NAME, $this->table_sheets
+        ));
+        
+        if (empty($column_exists)) {
+            $wpdb->query("ALTER TABLE {$this->table_sheets} ADD COLUMN days_config TEXT DEFAULT NULL");
+        }
+        
+        // Check if sheet_id column exists in schedules table
+        $column_exists = $wpdb->get_results($wpdb->prepare(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+             WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'sheet_id'",
+            DB_NAME, $this->table_schedules
+        ));
+        
+        if (empty($column_exists)) {
+            $wpdb->query("ALTER TABLE {$this->table_schedules} ADD COLUMN sheet_id INT(11) DEFAULT NULL AFTER id");
+            $wpdb->query("ALTER TABLE {$this->table_schedules} ADD KEY idx_sheet_day (sheet_id, day_of_week)");
+        }
     }
     
     /**
