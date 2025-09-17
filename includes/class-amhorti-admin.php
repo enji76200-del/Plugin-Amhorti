@@ -13,6 +13,7 @@ class Amhorti_Admin {
     public function init() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('wp_ajax_amhorti_admin_save_sheet', array($this, 'ajax_save_sheet'));
+        add_action('wp_ajax_amhorti_admin_edit_sheet', array($this, 'ajax_edit_sheet'));
         add_action('wp_ajax_amhorti_admin_save_schedule', array($this, 'ajax_save_schedule'));
         add_action('wp_ajax_amhorti_admin_delete_sheet', array($this, 'ajax_delete_sheet'));
         add_action('wp_ajax_amhorti_admin_delete_schedule', array($this, 'ajax_delete_schedule'));
@@ -157,13 +158,15 @@ class Amhorti_Admin {
                         </thead>
                         <tbody>
                             <?php foreach ($sheets as $sheet): ?>
-                            <tr>
+                            <tr data-sheet-id="<?php echo esc_attr($sheet->id); ?>">
                                 <td><?php echo esc_html($sheet->id); ?></td>
-                                <td><?php echo esc_html($sheet->name); ?></td>
-                                <td><?php echo esc_html($sheet->sort_order); ?></td>
-                                <td><?php echo $sheet->is_active ? 'Actif' : 'Inactif'; ?></td>
+                                <td class="editable-cell" data-field="name"><?php echo esc_html($sheet->name); ?></td>
+                                <td class="editable-cell" data-field="sort_order"><?php echo esc_html($sheet->sort_order); ?></td>
+                                <td class="editable-cell" data-field="is_active"><?php echo $sheet->is_active ? 'Actif' : 'Inactif'; ?></td>
                                 <td>
                                     <button class="button edit-sheet" data-id="<?php echo esc_attr($sheet->id); ?>">Modifier</button>
+                                    <button class="button save-sheet" data-id="<?php echo esc_attr($sheet->id); ?>" style="display:none;">Sauvegarder</button>
+                                    <button class="button cancel-edit" data-id="<?php echo esc_attr($sheet->id); ?>" style="display:none;">Annuler</button>
                                     <button class="button button-link-delete delete-sheet" data-id="<?php echo esc_attr($sheet->id); ?>">Supprimer</button>
                                 </td>
                             </tr>
@@ -194,6 +197,63 @@ class Amhorti_Admin {
                 });
             });
             
+            // Edit sheet functionality
+            $('.edit-sheet').on('click', function() {
+                var row = $(this).closest('tr');
+                var sheetId = $(this).data('id');
+                
+                // Make cells editable
+                row.find('.editable-cell').each(function() {
+                    var field = $(this).data('field');
+                    var currentValue = $(this).text().trim();
+                    
+                    if (field === 'is_active') {
+                        var select = '<select class="edit-input" data-field="' + field + '">';
+                        select += '<option value="1"' + (currentValue === 'Actif' ? ' selected' : '') + '>Actif</option>';
+                        select += '<option value="0"' + (currentValue === 'Inactif' ? ' selected' : '') + '>Inactif</option>';
+                        select += '</select>';
+                        $(this).html(select);
+                    } else {
+                        var inputType = field === 'sort_order' ? 'number' : 'text';
+                        $(this).html('<input type="' + inputType + '" class="edit-input" data-field="' + field + '" value="' + currentValue + '" />');
+                    }
+                });
+                
+                // Show/hide buttons
+                $(this).hide();
+                row.find('.save-sheet, .cancel-edit').show();
+            });
+            
+            // Save sheet functionality
+            $('.save-sheet').on('click', function() {
+                var row = $(this).closest('tr');
+                var sheetId = $(this).data('id');
+                var data = {
+                    action: 'amhorti_admin_edit_sheet',
+                    sheet_id: sheetId,
+                    nonce: $('#amhorti_admin_nonce').val()
+                };
+                
+                // Collect edited values
+                row.find('.edit-input').each(function() {
+                    var field = $(this).data('field');
+                    data[field] = $(this).val();
+                });
+                
+                $.post(ajaxurl, data, function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        alert('Erreur : ' + response.data);
+                    }
+                });
+            });
+            
+            // Cancel edit functionality
+            $('.cancel-edit').on('click', function() {
+                location.reload();
+            });
+            
             $('.delete-sheet').on('click', function() {
                 if (confirm('Êtes-vous sûr de vouloir supprimer cette feuille ?')) {
                     var data = {
@@ -221,6 +281,7 @@ class Amhorti_Admin {
      */
     public function schedules_page() {
         $days = array('lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche');
+        $sheets = $this->database->get_sheets();
         
         ?>
         <div class="wrap">
@@ -232,6 +293,17 @@ class Amhorti_Admin {
                     <form id="amhorti-add-schedule-form">
                         <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
                         <table class="form-table">
+                            <tr>
+                                <th scope="row">Feuille</th>
+                                <td>
+                                    <select name="sheet_id" id="sheet_id">
+                                        <option value="">Toutes les feuilles (horaire global)</option>
+                                        <?php foreach ($sheets as $sheet): ?>
+                                        <option value="<?php echo esc_attr($sheet->id); ?>"><?php echo esc_html($sheet->name); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </td>
+                            </tr>
                             <tr>
                                 <th scope="row">Jour de la Semaine</th>
                                 <td>
@@ -267,11 +339,13 @@ class Amhorti_Admin {
                     </form>
                 </div>
                 
-                <?php foreach ($days as $day): ?>
-                    <?php $schedules = $this->database->get_schedule_for_day($day); ?>
-                    <div class="card">
-                        <h2><?php echo ucfirst($day); ?></h2>
+                <!-- Global schedules -->
+                <div class="card">
+                    <h2>Horaires Globaux (toutes les feuilles)</h2>
+                    <?php foreach ($days as $day): ?>
+                        <?php $schedules = $this->get_schedules_for_day_and_sheet($day, null); ?>
                         <?php if (!empty($schedules)): ?>
+                        <h3><?php echo ucfirst($day); ?></h3>
                         <table class="wp-list-table widefat fixed striped">
                             <thead>
                                 <tr>
@@ -297,10 +371,46 @@ class Amhorti_Admin {
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-                        <?php else: ?>
-                        <p>Aucun créneau horaire configuré pour ce jour.</p>
                         <?php endif; ?>
-                    </div>
+                    <?php endforeach; ?>
+                </div>
+                
+                <!-- Sheet-specific schedules -->
+                <?php foreach ($sheets as $sheet): ?>
+                <div class="card">
+                    <h2>Horaires Spécifiques - <?php echo esc_html($sheet->name); ?></h2>
+                    <?php foreach ($days as $day): ?>
+                        <?php $schedules = $this->get_schedules_for_day_and_sheet($day, $sheet->id); ?>
+                        <?php if (!empty($schedules)): ?>
+                        <h3><?php echo ucfirst($day); ?></h3>
+                        <table class="wp-list-table widefat fixed striped">
+                            <thead>
+                                <tr>
+                                    <th>Heure de Début</th>
+                                    <th>Heure de Fin</th>
+                                    <th>Créneaux</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($schedules as $schedule): ?>
+                                <tr>
+                                    <td><?php echo esc_html($schedule->time_start); ?></td>
+                                    <td><?php echo esc_html($schedule->time_end); ?></td>
+                                    <td><?php echo esc_html($schedule->slot_count); ?></td>
+                                    <td><?php echo $schedule->is_active ? 'Actif' : 'Inactif'; ?></td>
+                                    <td>
+                                        <button class="button edit-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Modifier</button>
+                                        <button class="button button-link-delete delete-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Supprimer</button>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
                 <?php endforeach; ?>
             </div>
         </div>
@@ -311,6 +421,7 @@ class Amhorti_Admin {
                 e.preventDefault();
                 var data = {
                     action: 'amhorti_admin_save_schedule',
+                    sheet_id: $('#sheet_id').val() || null,
                     day_of_week: $('#day_of_week').val(),
                     time_start: $('#time_start').val(),
                     time_end: $('#time_end').val(),
@@ -350,6 +461,28 @@ class Amhorti_Admin {
     }
     
     /**
+     * Helper method to get schedules for a specific day and sheet
+     */
+    private function get_schedules_for_day_and_sheet($day, $sheet_id = null) {
+        global $wpdb;
+        $table_schedules = $wpdb->prefix . 'amhorti_schedules';
+        
+        if ($sheet_id === null) {
+            // Get global schedules (where sheet_id is NULL)
+            return $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM $table_schedules WHERE day_of_week = %s AND sheet_id IS NULL AND is_active = 1 ORDER BY time_start ASC",
+                $day
+            ));
+        } else {
+            // Get sheet-specific schedules
+            return $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM $table_schedules WHERE day_of_week = %s AND sheet_id = %d AND is_active = 1 ORDER BY time_start ASC",
+                $day, $sheet_id
+            ));
+        }
+    }
+    
+    /**
      * AJAX handler for saving sheets
      */
     public function ajax_save_sheet() {
@@ -378,6 +511,50 @@ class Amhorti_Admin {
     }
     
     /**
+     * AJAX handler for editing sheets
+     */
+    public function ajax_edit_sheet() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+        
+        global $wpdb;
+        $table_sheets = $wpdb->prefix . 'amhorti_sheets';
+        
+        $sheet_id = intval($_POST['sheet_id']);
+        $update_data = array();
+        
+        if (isset($_POST['name'])) {
+            $update_data['name'] = sanitize_text_field($_POST['name']);
+        }
+        if (isset($_POST['sort_order'])) {
+            $update_data['sort_order'] = intval($_POST['sort_order']);
+        }
+        if (isset($_POST['is_active'])) {
+            $update_data['is_active'] = intval($_POST['is_active']);
+        }
+        
+        if (empty($update_data)) {
+            wp_send_json_error('No data to update');
+            return;
+        }
+        
+        $result = $wpdb->update(
+            $table_sheets,
+            $update_data,
+            array('id' => $sheet_id)
+        );
+        
+        if ($result !== false) {
+            wp_send_json_success();
+        } else {
+            wp_send_json_error('Failed to update sheet');
+        }
+    }
+    
+    /**
      * AJAX handler for saving schedules
      */
     public function ajax_save_schedule() {
@@ -390,15 +567,19 @@ class Amhorti_Admin {
         global $wpdb;
         $table_schedules = $wpdb->prefix . 'amhorti_schedules';
         
-        $result = $wpdb->insert(
-            $table_schedules,
-            array(
-                'day_of_week' => sanitize_text_field($_POST['day_of_week']),
-                'time_start' => sanitize_text_field($_POST['time_start']),
-                'time_end' => sanitize_text_field($_POST['time_end']),
-                'slot_count' => intval($_POST['slot_count'])
-            )
+        $insert_data = array(
+            'day_of_week' => sanitize_text_field($_POST['day_of_week']),
+            'time_start' => sanitize_text_field($_POST['time_start']),
+            'time_end' => sanitize_text_field($_POST['time_end']),
+            'slot_count' => intval($_POST['slot_count'])
         );
+        
+        // Add sheet_id if provided
+        if (!empty($_POST['sheet_id'])) {
+            $insert_data['sheet_id'] = intval($_POST['sheet_id']);
+        }
+        
+        $result = $wpdb->insert($table_schedules, $insert_data);
         
         if ($result !== false) {
             wp_send_json_success();
@@ -662,33 +843,7 @@ class Amhorti_Admin {
                     <div class="amhorti-css-preview-panel">
                         <h2>Aperçu en Temps Réel</h2>
                         <div id="amhorti-preview-container">
-                            <div class="amhorti-schedule-container" style="max-width: 100%; margin: 20px 0;">
-                                <div class="amhorti-tabs">
-                                    <button class="amhorti-tab active">Feuille 1</button>
-                                    <button class="amhorti-tab">Feuille 2</button>
-                                </div>
-                                <table class="amhorti-schedule-table" style="width: 100%; border-collapse: collapse;">
-                                    <thead>
-                                        <tr>
-                                            <th class="time-header">Horaires</th>
-                                            <th class="date-header">Lundi 18/11</th>
-                                            <th class="date-header">Mardi 19/11</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td class="time-cell">09:00 - 10:30</td>
-                                            <td class="booking-cell editable" contenteditable="true">Exemple</td>
-                                            <td class="booking-cell disabled"></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                                <div class="amhorti-navigation">
-                                    <button class="amhorti-nav-btn">← Semaine précédente</button>
-                                    <button class="amhorti-nav-btn">Aujourd'hui</button>
-                                    <button class="amhorti-nav-btn">Semaine suivante →</button>
-                                </div>
-                            </div>
+                            <?php echo $this->generate_preview_html(); ?>
                         </div>
                     </div>
                 </div>
@@ -935,5 +1090,76 @@ class Amhorti_Admin {
         } else {
             wp_send_json_error('Échec de l\'ajout de l\'horaire');
         }
+    }
+    
+    /**
+     * Generate preview HTML for CSS editor
+     */
+    private function generate_preview_html() {
+        $sheets = $this->database->get_sheets();
+        $days = array('lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche');
+        
+        if (empty($sheets)) {
+            return '<p>Aucune feuille disponible pour la prévisualisation.</p>';
+        }
+        
+        ob_start();
+        ?>
+        <div class="amhorti-schedule-container" style="max-width: 100%; margin: 20px 0;">
+            <!-- Sheet tabs -->
+            <div class="amhorti-tabs">
+                <?php foreach ($sheets as $index => $sheet): ?>
+                <button class="amhorti-tab <?php echo $index === 0 ? 'active' : ''; ?>" data-sheet-id="<?php echo esc_attr($sheet->id); ?>">
+                    <?php echo esc_html($sheet->name); ?>
+                </button>
+                <?php endforeach; ?>
+            </div>
+            
+            <!-- Sample table -->
+            <table class="amhorti-schedule-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th class="time-header">Horaires</th>
+                        <th class="date-header">Lundi <?php echo date('d/m'); ?></th>
+                        <th class="date-header">Mardi <?php echo date('d/m', strtotime('+1 day')); ?></th>
+                        <th class="date-header">Mercredi <?php echo date('d/m', strtotime('+2 days')); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    // Get sample schedules for preview
+                    $sample_schedules = $this->get_schedules_for_day_and_sheet('lundi', null);
+                    if (empty($sample_schedules)) {
+                        $sample_schedules = array(
+                            (object)array('time_start' => '09:00:00', 'time_end' => '10:30:00', 'slot_count' => 2),
+                            (object)array('time_start' => '10:30:00', 'time_end' => '12:00:00', 'slot_count' => 2),
+                        );
+                    }
+                    
+                    foreach ($sample_schedules as $schedule):
+                        for ($slot = 1; $slot <= $schedule->slot_count; $slot++):
+                    ?>
+                    <tr>
+                        <td class="time-cell"><?php echo substr($schedule->time_start, 0, 5) . ' - ' . substr($schedule->time_end, 0, 5); ?></td>
+                        <td class="booking-cell editable" contenteditable="true">Exemple</td>
+                        <td class="booking-cell disabled"></td>
+                        <td class="booking-cell editable" contenteditable="true"></td>
+                    </tr>
+                    <?php 
+                        endfor;
+                    endforeach; 
+                    ?>
+                </tbody>
+            </table>
+            
+            <!-- Navigation buttons -->
+            <div class="amhorti-navigation">
+                <button class="amhorti-nav-btn">← Semaine précédente</button>
+                <button class="amhorti-nav-btn">Aujourd'hui</button>
+                <button class="amhorti-nav-btn">Semaine suivante →</button>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
     }
 }
