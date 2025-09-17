@@ -20,6 +20,7 @@ Un plugin WordPress qui crée un tableau de planification similaire à Excel ave
 - **🆕 Restauration des horaires par défaut** : Bouton pour réinsérer les horaires globaux si supprimés
 - **🆕 Clonage des horaires globaux** : Copier les horaires globaux existants vers une feuille pour les personnaliser
 - **🆕 Masquage colonnes jours inactifs** : Les jours désactivés d'une feuille ne s'affichent plus côté public (colonnes retirées)
+- **🆕 Rafraîchissement auto jours** : Après modification des jours actifs dans l'admin, le tableau public se met à jour automatiquement (événement localStorage)
 
 ## Installation
 

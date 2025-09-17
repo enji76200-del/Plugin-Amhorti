@@ -10,6 +10,7 @@
         init: function() {
             this.bindEvents();
             this.loadTable();
+            this.bindStorageListener();
         },
         
         bindEvents: function() {
@@ -39,6 +40,18 @@
                     $(this).blur();
                 }
             });
+        },
+        
+        bindStorageListener: function(){
+            var self = this;
+            try {
+                window.addEventListener('storage', function(ev){
+                    if(ev.key === 'amhorti_days_updated') {
+                        // Recharger seulement si feuille courante correspond ou recharger toujours (simpler)
+                        self.loadTable();
+                    }
+                });
+            } catch(e) {}
         },
         
         switchSheet: function(sheetId) {

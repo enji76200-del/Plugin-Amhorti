@@ -737,7 +737,6 @@ class Amhorti_Admin {
                 form.find('input[name="active_days[]"]:checked').each(function() {
                     activeDays.push($(this).val());
                 });
-                
                 var data = {
                     action: 'amhorti_admin_update_sheet',
                     sheet_id: sheetId,
@@ -745,10 +744,12 @@ class Amhorti_Admin {
                     active_days: activeDays,
                     nonce: form.find('input[name="amhorti_admin_nonce"]').val()
                 };
-                
                 $.post(ajaxurl, data, function(response) {
                     if (response.success) {
                         alert('Configuration sauvegardée avec succès !');
+                        try {
+                            localStorage.setItem('amhorti_days_updated', JSON.stringify({ts:Date.now(), sheet: sheetId}));
+                        } catch(e) {}
                     } else {
                         alert('Erreur : ' + response.data);
                     }
