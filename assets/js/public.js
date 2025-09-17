@@ -46,9 +46,9 @@
             var self = this;
             try {
                 window.addEventListener('storage', function(ev){
-                    if(ev.key === 'amhorti_days_updated') {
-                        // Recharger seulement si feuille courante correspond ou recharger toujours (simpler)
+                    if(ev.key === 'amhorti_days_updated' || ev.key === 'amhorti_schedule_changed') {
                         self.loadTable();
+                        self.showMessage('Mise à jour appliquée', 'info');
                     }
                 });
             } catch(e) {}

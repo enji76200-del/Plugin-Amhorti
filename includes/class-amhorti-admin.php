@@ -194,6 +194,7 @@ class Amhorti_Admin {
                 
                 $.post(ajaxurl, data, function(response) {
                     if (response.success) {
+                        try { localStorage.setItem('amhorti_schedule_changed', JSON.stringify({ts:Date.now(), type:'add_global'})); } catch(e) {}
                         location.reload();
                     } else {
                         alert('Error: ' + response.data);
@@ -229,7 +230,6 @@ class Amhorti_Admin {
     public function schedules_page() {
         $days = array('lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche');
         $sheets = $this->database->get_sheets();
-        
         ?>
         <div class="wrap">
             <h1>Gérer les Horaires</h1>
@@ -383,6 +383,7 @@ class Amhorti_Admin {
                 
                 $.post(ajaxurl, data, function(response) {
                     if (response.success) {
+                        try { localStorage.setItem('amhorti_schedule_changed', JSON.stringify({ts:Date.now(), type:'add_global'})); } catch(e) {}
                         location.reload();
                     } else {
                         alert('Erreur : ' + response.data);
@@ -400,6 +401,7 @@ class Amhorti_Admin {
                     
                     $.post(ajaxurl, data, function(response) {
                         if (response.success) {
+                            try { localStorage.setItem('amhorti_schedule_changed', JSON.stringify({ts:Date.now(), type:'delete'})); } catch(e) {}
                             location.reload();
                         } else {
                             alert('Erreur : ' + response.data);
@@ -440,6 +442,7 @@ class Amhorti_Admin {
                 $.post(ajaxurl, data, function(response){
                     if(response.success){
                         alert('Horaire mis à jour');
+                        try { localStorage.setItem('amhorti_schedule_changed', JSON.stringify({ts:Date.now(), type:'update'})); } catch(e) {}
                         location.reload();
                     } else { alert('Erreur : '+response.data); }
                 });
@@ -747,9 +750,7 @@ class Amhorti_Admin {
                 $.post(ajaxurl, data, function(response) {
                     if (response.success) {
                         alert('Configuration sauvegardée avec succès !');
-                        try {
-                            localStorage.setItem('amhorti_days_updated', JSON.stringify({ts:Date.now(), sheet: sheetId}));
-                        } catch(e) {}
+                        try { localStorage.setItem('amhorti_schedule_changed', JSON.stringify({ts:Date.now(), type:'update'})); } catch(e) {}
                     } else {
                         alert('Erreur : ' + response.data);
                     }
