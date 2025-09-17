@@ -198,10 +198,11 @@ class Amhorti_Database {
      */
     public function get_schedule_for_day($day_of_week) {
         global $wpdb;
+        // Ne retourner que les horaires globaux (sheet_id NULL ou 0)
         return $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$this->table_schedules} 
-                WHERE day_of_week = %s AND is_active = 1 
+                WHERE day_of_week = %s AND is_active = 1 AND (sheet_id IS NULL OR sheet_id = 0)
                 ORDER BY time_start ASC",
                 $day_of_week
             )
@@ -262,6 +263,22 @@ class Amhorti_Database {
             );
         }
     }
+
+    /**
+     * Update schedule row
+     */
+    public function update_schedule($schedule_id, $data) {
+        global $wpdb;
+        return $wpdb->update($this->table_schedules, $data, array('id' => intval($schedule_id)));
+    }
+
+    /**
+     * Get schedule by id
+     */
+    public function get_schedule($schedule_id) {
+        global $wpdb;
+        return $wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->table_schedules} WHERE id = %d", $schedule_id));
+    }
     
     /**
      * Clean up old bookings (older than 14 days)
@@ -295,7 +312,6 @@ class Amhorti_Database {
         if (empty($sheet_schedules)) {
             return $this->get_schedule_for_day($day_of_week);
         }
-        
         return $sheet_schedules;
     }
     

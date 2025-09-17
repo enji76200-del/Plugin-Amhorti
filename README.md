@@ -16,6 +16,8 @@ Un plugin WordPress qui crée un tableau de planification similaire à Excel ave
 - **🆕 Horaires spécifiques par feuille** : Chaque feuille peut avoir ses propres horaires
 - **🆕 Éditeur CSS intégré** : Interface pour personnaliser l'apparence avec prévisualisation en temps réel
 - **🆕 Interface en français** : Navigation et administration entièrement traduites
+- **🆕 Édition inline des horaires** : Modifier directement les heures et le nombre de créneaux dans l’admin
+- **🆕 Restauration des horaires par défaut** : Bouton pour réinsérer les horaires globaux si supprimés
 
 ## Installation
 
@@ -93,6 +95,11 @@ Pour afficher une feuille spécifique :
 - Interface intuitive pour une gestion fine des plannings
 
 **Éditeur CSS Intégré** :
+**Horaires** :
+- Édition inline (bouton Modifier > Sauvegarder / Annuler)
+- Suppression logique (les horaires restent en base mais inactifs)
+- Bouton de restauration des horaires globaux par défaut si tous supprimés
+
 - Éditeur de code avec syntaxe highlighting
 - Prévisualisation en temps réel des modifications
 - Sauvegarde automatique des styles personnalisés
@@ -140,6 +147,7 @@ Le plugin crée 4 tables :
 - Validation côté serveur et client
 - Protection CSRF avec nonces WordPress
 - Sanitisation de toutes les entrées utilisateur
+- **🆕** Validation serveur des heures (début < fin) et du nombre de créneaux
 
 ## Exemples d'utilisation
 

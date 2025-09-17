@@ -21,6 +21,9 @@ class Amhorti_Admin {
         add_action('wp_ajax_amhorti_admin_save_css', array($this, 'ajax_save_css'));
         add_action('wp_ajax_amhorti_admin_get_css', array($this, 'ajax_get_css'));
         add_action('wp_ajax_amhorti_admin_add_sheet_schedule', array($this, 'ajax_add_sheet_schedule'));
+        add_action('wp_ajax_amhorti_admin_update_schedule', array($this, 'ajax_update_schedule'));
+        add_action('wp_ajax_amhorti_admin_get_schedule', array($this, 'ajax_get_schedule'));
+        add_action('wp_ajax_amhorti_admin_restore_defaults', array($this, 'ajax_restore_defaults'));
     }
     
     /**
@@ -285,6 +288,7 @@ class Amhorti_Admin {
                 <!-- Global schedules -->
                 <div class="card">
                     <h2>Horaires Globaux (toutes les feuilles)</h2>
+                    <p><button id="amhorti-restore-defaults" class="button">Réinitialiser Horaires Par Défaut</button></p>
                     <?php foreach ($days as $day): ?>
                         <?php $schedules = $this->get_schedules_for_day_and_sheet($day, null); ?>
                         <?php if (!empty($schedules)): ?>
@@ -307,7 +311,9 @@ class Amhorti_Admin {
                                     <td><?php echo esc_html($schedule->slot_count); ?></td>
                                     <td><?php echo $schedule->is_active ? 'Actif' : 'Inactif'; ?></td>
                                     <td>
-                                        <button class="button edit-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Modifier</button>
+                                        <button class="button edit-schedule" data-id="<?php echo esc_attr($schedule->id); ?>" data-day="<?php echo esc_attr($day); ?>" data-sheet="">Modifier</button>
+                                        <button class="button save-schedule" data-id="<?php echo esc_attr($schedule->id); ?>" style="display:none;">Sauvegarder</button>
+                                        <button class="button cancel-schedule" data-id="<?php echo esc_attr($schedule->id); ?>" style="display:none;">Annuler</button>
                                         <button class="button button-link-delete delete-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Supprimer</button>
                                     </td>
                                 </tr>
@@ -344,7 +350,9 @@ class Amhorti_Admin {
                                     <td><?php echo esc_html($schedule->slot_count); ?></td>
                                     <td><?php echo $schedule->is_active ? 'Actif' : 'Inactif'; ?></td>
                                     <td>
-                                        <button class="button edit-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Modifier</button>
+                                        <button class="button edit-schedule" data-id="<?php echo esc_attr($schedule->id); ?>" data-day="<?php echo esc_attr($day); ?>" data-sheet="<?php echo esc_attr($sheet->id); ?>">Modifier</button>
+                                        <button class="button save-schedule" data-id="<?php echo esc_attr($schedule->id); ?>" style="display:none;">Sauvegarder</button>
+                                        <button class="button cancel-schedule" data-id="<?php echo esc_attr($schedule->id); ?>" style="display:none;">Annuler</button>
                                         <button class="button button-link-delete delete-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Supprimer</button>
                                     </td>
                                 </tr>
@@ -398,6 +406,50 @@ class Amhorti_Admin {
                     });
                 }
             });
+
+            // Edit schedule inline
+            $('.edit-schedule').on('click', function() {
+                var btn = $(this);
+                var row = btn.closest('tr');
+                if (row.hasClass('editing')) return;
+                row.addClass('editing');
+                var timeStart = row.find('td').eq(0).text().trim();
+                var timeEnd = row.find('td').eq(1).text().trim();
+                var slotCount = row.find('td').eq(2).text().trim();
+                row.find('td').eq(0).html('<input type="time" class="edit-time-start" value="'+timeStart+'" />');
+                row.find('td').eq(1).html('<input type="time" class="edit-time-end" value="'+timeEnd+'" />');
+                row.find('td').eq(2).html('<input type="number" min="1" max="10" class="edit-slot-count" value="'+slotCount+'" />');
+                btn.hide();
+                row.find('.save-schedule, .cancel-schedule').show();
+            });
+
+            $('.cancel-schedule').on('click', function(){ location.reload(); });
+
+            $('.save-schedule').on('click', function(){
+                var row = $(this).closest('tr');
+                var scheduleId = $(this).data('id');
+                var data = {
+                    action: 'amhorti_admin_update_schedule',
+                    schedule_id: scheduleId,
+                    time_start: row.find('.edit-time-start').val(),
+                    time_end: row.find('.edit-time-end').val(),
+                    slot_count: row.find('.edit-slot-count').val(),
+                    nonce: $('#amhorti_admin_nonce').val()
+                };
+                $.post(ajaxurl, data, function(response){
+                    if(response.success){
+                        alert('Horaire mis à jour');
+                        location.reload();
+                    } else { alert('Erreur : '+response.data); }
+                });
+            });
+
+            $('#amhorti-restore-defaults').on('click', function(){
+                if(!confirm('Réinsérer les horaires globaux par défaut manquants ?')) return;
+                $.post(ajaxurl, {action:'amhorti_admin_restore_defaults', nonce: $('#amhorti_admin_nonce').val()}, function(response){
+                    if(response.success){ alert('Horaires par défaut restaurés'); location.reload(); } else { alert('Erreur : '+response.data); }
+                });
+            });
         });
         </script>
         <?php
@@ -411,9 +463,9 @@ class Amhorti_Admin {
         $table_schedules = $wpdb->prefix . 'amhorti_schedules';
         
         if ($sheet_id === null) {
-            // Get global schedules (where sheet_id is NULL)
+            // Get global schedules (where sheet_id is NULL or 0)
             return $wpdb->get_results($wpdb->prepare(
-                "SELECT * FROM $table_schedules WHERE day_of_week = %s AND sheet_id IS NULL AND is_active = 1 ORDER BY time_start ASC",
+                "SELECT * FROM $table_schedules WHERE day_of_week = %s AND (sheet_id IS NULL OR sheet_id = 0) AND is_active = 1 ORDER BY time_start ASC",
                 $day
             ));
         } else {
@@ -522,6 +574,10 @@ class Amhorti_Admin {
             $insert_data['sheet_id'] = intval($_POST['sheet_id']);
         }
         
+        // Validation heures
+        if ($insert_data['time_start'] >= $insert_data['time_end']) {
+            wp_send_json_error('Heure de début >= heure de fin');
+        }
         $result = $wpdb->insert($table_schedules, $insert_data);
         
         if ($result !== false) {
@@ -570,10 +626,11 @@ class Amhorti_Admin {
         global $wpdb;
         $table_schedules = $wpdb->prefix . 'amhorti_schedules';
         
+        $schedule_id = intval($_POST['schedule_id']);
         $result = $wpdb->update(
             $table_schedules,
             array('is_active' => 0),
-            array('id' => intval($_POST['schedule_id']))
+            array('id' => $schedule_id)
         );
         
         if ($result !== false) {
@@ -1017,13 +1074,18 @@ class Amhorti_Admin {
         global $wpdb;
         $table_schedules = $wpdb->prefix . 'amhorti_schedules';
         
+        $time_start = sanitize_text_field($_POST['time_start']);
+        $time_end = sanitize_text_field($_POST['time_end']);
+        if ($time_start >= $time_end) {
+            wp_send_json_error('Heure de début >= heure de fin');
+        }
         $result = $wpdb->insert(
             $table_schedules,
             array(
                 'sheet_id' => intval($_POST['sheet_id']),
                 'day_of_week' => sanitize_text_field($_POST['day_of_week']),
-                'time_start' => sanitize_text_field($_POST['time_start']),
-                'time_end' => sanitize_text_field($_POST['time_end']),
+                'time_start' => $time_start,
+                'time_end' => $time_end,
                 'slot_count' => intval($_POST['slot_count'])
             )
         );
@@ -1033,6 +1095,115 @@ class Amhorti_Admin {
         } else {
             wp_send_json_error('Échec de l\'ajout de l\'horaire');
         }
+    }
+
+    /**
+     * AJAX: get single schedule (pour future usage modal)
+     */
+    public function ajax_get_schedule() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        if (!current_user_can('manage_options')) wp_die('Unauthorized');
+        global $wpdb; $table = $wpdb->prefix.'amhorti_schedules';
+        $id = intval($_POST['schedule_id']);
+        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d", $id));
+        if ($row) wp_send_json_success($row); else wp_send_json_error('Introuvable');
+    }
+
+    /**
+     * AJAX: update schedule
+     */
+    public function ajax_update_schedule() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        if (!current_user_can('manage_options')) wp_die('Unauthorized');
+        global $wpdb; $table = $wpdb->prefix.'amhorti_schedules';
+        $id = intval($_POST['schedule_id']);
+        $time_start = sanitize_text_field($_POST['time_start']);
+        $time_end = sanitize_text_field($_POST['time_end']);
+        $slot_count = intval($_POST['slot_count']);
+        if ($time_start >= $time_end) wp_send_json_error('Heure de début >= heure de fin');
+        if ($slot_count < 1) wp_send_json_error('slot_count invalide');
+        $res = $wpdb->update($table, array(
+            'time_start'=>$time_start,
+            'time_end'=>$time_end,
+            'slot_count'=>$slot_count
+        ), array('id'=>$id));
+        if ($res !== false) wp_send_json_success(); else wp_send_json_error('Échec mise à jour');
+    }
+
+    /**
+     * AJAX: restore default global schedules when none remain active
+     */
+    public function ajax_restore_defaults() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        if (!current_user_can('manage_options')) wp_die('Unauthorized');
+        global $wpdb; $table = $wpdb->prefix.'amhorti_schedules';
+        $count_active = (int)$wpdb->get_var("SELECT COUNT(*) FROM $table WHERE (sheet_id IS NULL OR sheet_id=0) AND is_active=1");
+        if ($count_active > 0) {
+            wp_send_json_error('Des horaires globaux actifs existent encore');
+        }
+        $defaults = array(
+            // Lundi
+            array('day_of_week'=>'lundi','time_start'=>'06:00:00','time_end'=>'07:00:00','slot_count'=>3),
+            array('day_of_week'=>'lundi','time_start'=>'07:30:00','time_end'=>'08:30:00','slot_count'=>3),
+            array('day_of_week'=>'lundi','time_start'=>'08:30:00','time_end'=>'10:00:00','slot_count'=>2),
+            array('day_of_week'=>'lundi','time_start'=>'10:00:00','time_end'=>'11:30:00','slot_count'=>2),
+            array('day_of_week'=>'lundi','time_start'=>'11:30:00','time_end'=>'13:00:00','slot_count'=>2),
+            array('day_of_week'=>'lundi','time_start'=>'13:00:00','time_end'=>'14:30:00','slot_count'=>2),
+            array('day_of_week'=>'lundi','time_start'=>'14:30:00','time_end'=>'16:00:00','slot_count'=>2),
+            array('day_of_week'=>'lundi','time_start'=>'16:00:00','time_end'=>'17:30:00','slot_count'=>2),
+            array('day_of_week'=>'lundi','time_start'=>'17:30:00','time_end'=>'19:00:00','slot_count'=>3),
+            array('day_of_week'=>'lundi','time_start'=>'19:00:00','time_end'=>'20:00:00','slot_count'=>3),
+            // Mardi
+            array('day_of_week'=>'mardi','time_start'=>'07:30:00','time_end'=>'08:30:00','slot_count'=>3),
+            array('day_of_week'=>'mardi','time_start'=>'08:30:00','time_end'=>'10:00:00','slot_count'=>2),
+            array('day_of_week'=>'mardi','time_start'=>'10:00:00','time_end'=>'11:30:00','slot_count'=>2),
+            array('day_of_week'=>'mardi','time_start'=>'11:30:00','time_end'=>'13:00:00','slot_count'=>2),
+            array('day_of_week'=>'mardi','time_start'=>'13:00:00','time_end'=>'14:30:00','slot_count'=>2),
+            array('day_of_week'=>'mardi','time_start'=>'14:30:00','time_end'=>'16:00:00','slot_count'=>2),
+            array('day_of_week'=>'mardi','time_start'=>'16:00:00','time_end'=>'17:30:00','slot_count'=>2),
+            array('day_of_week'=>'mardi','time_start'=>'17:30:00','time_end'=>'19:00:00','slot_count'=>3),
+            array('day_of_week'=>'mardi','time_start'=>'19:00:00','time_end'=>'20:00:00','slot_count'=>3),
+            // Mercredi
+            array('day_of_week'=>'mercredi','time_start'=>'07:30:00','time_end'=>'08:30:00','slot_count'=>3),
+            array('day_of_week'=>'mercredi','time_start'=>'08:30:00','time_end'=>'10:00:00','slot_count'=>2),
+            array('day_of_week'=>'mercredi','time_start'=>'10:00:00','time_end'=>'11:30:00','slot_count'=>2),
+            array('day_of_week'=>'mercredi','time_start'=>'11:30:00','time_end'=>'13:00:00','slot_count'=>2),
+            array('day_of_week'=>'mercredi','time_start'=>'13:00:00','time_end'=>'14:30:00','slot_count'=>2),
+            array('day_of_week'=>'mercredi','time_start'=>'14:30:00','time_end'=>'16:00:00','slot_count'=>2),
+            array('day_of_week'=>'mercredi','time_start'=>'16:00:00','time_end'=>'17:30:00','slot_count'=>2),
+            array('day_of_week'=>'mercredi','time_start'=>'17:30:00','time_end'=>'19:00:00','slot_count'=>3),
+            array('day_of_week'=>'mercredi','time_start'=>'19:00:00','time_end'=>'20:00:00','slot_count'=>3),
+            // Jeudi
+            array('day_of_week'=>'jeudi','time_start'=>'07:30:00','time_end'=>'08:30:00','slot_count'=>3),
+            array('day_of_week'=>'jeudi','time_start'=>'08:30:00','time_end'=>'10:00:00','slot_count'=>2),
+            array('day_of_week'=>'jeudi','time_start'=>'10:00:00','time_end'=>'11:30:00','slot_count'=>2),
+            array('day_of_week'=>'jeudi','time_start'=>'11:30:00','time_end'=>'13:00:00','slot_count'=>2),
+            array('day_of_week'=>'jeudi','time_start'=>'13:00:00','time_end'=>'14:30:00','slot_count'=>2),
+            array('day_of_week'=>'jeudi','time_start'=>'14:30:00','time_end'=>'16:00:00','slot_count'=>2),
+            array('day_of_week'=>'jeudi','time_start'=>'16:00:00','time_end'=>'17:30:00','slot_count'=>2),
+            array('day_of_week'=>'jeudi','time_start'=>'17:30:00','time_end'=>'19:00:00','slot_count'=>3),
+            array('day_of_week'=>'jeudi','time_start'=>'19:00:00','time_end'=>'20:00:00','slot_count'=>3),
+            // Vendredi
+            array('day_of_week'=>'vendredi','time_start'=>'07:30:00','time_end'=>'08:30:00','slot_count'=>3),
+            array('day_of_week'=>'vendredi','time_start'=>'08:30:00','time_end'=>'10:00:00','slot_count'=>2),
+            array('day_of_week'=>'vendredi','time_start'=>'10:00:00','time_end'=>'11:30:00','slot_count'=>2),
+            array('day_of_week'=>'vendredi','time_start'=>'11:30:00','time_end'=>'13:00:00','slot_count'=>2),
+            array('day_of_week'=>'vendredi','time_start'=>'13:00:00','time_end'=>'14:30:00','slot_count'=>2),
+            array('day_of_week'=>'vendredi','time_start'=>'14:30:00','time_end'=>'16:00:00','slot_count'=>2),
+            array('day_of_week'=>'vendredi','time_start'=>'16:00:00','time_end'=>'17:30:00','slot_count'=>2),
+            array('day_of_week'=>'vendredi','time_start'=>'17:30:00','time_end'=>'19:00:00','slot_count'=>3),
+            array('day_of_week'=>'vendredi','time_start'=>'19:00:00','time_end'=>'20:00:00','slot_count'=>3),
+            // Samedi
+            array('day_of_week'=>'samedi','time_start'=>'13:00:00','time_end'=>'14:30:00','slot_count'=>2),
+            array('day_of_week'=>'samedi','time_start'=>'14:30:00','time_end'=>'16:00:00','slot_count'=>2),
+            array('day_of_week'=>'samedi','time_start'=>'16:00:00','time_end'=>'17:30:00','slot_count'=>2),
+            array('day_of_week'=>'samedi','time_start'=>'17:30:00','time_end'=>'19:00:00','slot_count'=>3),
+            array('day_of_week'=>'samedi','time_start'=>'19:00:00','time_end'=>'20:00:00','slot_count'=>3)
+        );
+        foreach ($defaults as $d) {
+            $wpdb->insert($table, $d);
+        }
+        wp_send_json_success();
     }
     
     /**
