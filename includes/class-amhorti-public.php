@@ -84,9 +84,9 @@ class Amhorti_Public {
         }
         
         // Calculate the start of the week (Monday) but ensure we don't go before today
-        $date = new DateTime($start_date);
-        $day_of_week = $date->format('N'); // 1 (Monday) to 7 (Sunday)
-        $week_start = clone $date;
+        $date_obj = new DateTime($start_date);
+        $day_of_week = $date_obj->format('N'); // 1 (Monday) to 7 (Sunday)
+        $week_start = clone $date_obj;
         $week_start->modify('-' . ($day_of_week - 1) . ' days');
         
         // If week start is before today, start from today
@@ -95,15 +95,15 @@ class Amhorti_Public {
             $week_start = clone $today_date;
         }
         
-        // Generate 7 days from the start date
-        $dates = array();
+        // Generate 7 days representing the week
+        $week_dates = array();
         $current_date = clone $week_start;
         for ($i = 0; $i < 7; $i++) {
-            $dates[] = $current_date->format('Y-m-d');
+            $week_dates[] = $current_date->format('Y-m-d');
             $current_date->modify('+1 day');
         }
         
-        // Get French day names
+        // Get French day names mapping
         $french_days = array(
             'Monday' => 'lundi',
             'Tuesday' => 'mardi', 
@@ -114,27 +114,34 @@ class Amhorti_Public {
             'Sunday' => 'dimanche'
         );
         
-        // Get sheet configuration
+        // Get sheet configuration & active days
         $sheet_config = $this->database->get_sheet_config($sheet_id);
         $active_days = array();
         if ($sheet_config && $sheet_config->days_config) {
             $active_days = json_decode($sheet_config->days_config, true) ?: array();
         }
         
-        // Get all time slots for the week
-        $all_time_slots = array();
-        foreach ($dates as $date) {
-            $day_name = date('l', strtotime($date));
+        // Decide which dates to display: if no active_days configured -> show all (backward compatible)
+        $display_dates = array();
+        foreach ($week_dates as $d) {
+            $day_name = date('l', strtotime($d));
             $french_day = $french_days[$day_name];
-            
-            // Skip days that are not active for this sheet
-            if (!empty($active_days) && !in_array($french_day, $active_days)) {
-                continue;
+            if (empty($active_days) || in_array($french_day, $active_days)) {
+                $display_dates[] = $d;
             }
-            
-            // Get sheet-specific schedule or fall back to global
+        }
+        
+        // If no days active in this week, show message & exit early
+        if (empty($display_dates)) {
+            return '<p>Aucun jour actif configuré pour cette feuille.</p>';
+        }
+        
+        // Collect unique time slots across the active days
+        $all_time_slots = array();
+        foreach ($display_dates as $d) {
+            $day_name = date('l', strtotime($d));
+            $french_day = $french_days[$day_name];
             $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
-            
             foreach ($day_schedule as $slot) {
                 $time_key = $slot->time_start . '-' . $slot->time_end;
                 if (!in_array($time_key, $all_time_slots)) {
@@ -142,16 +149,14 @@ class Amhorti_Public {
                 }
             }
         }
-        
-        // Sort time slots
         sort($all_time_slots);
         
-        // Get existing bookings for all dates
+        // Load bookings only for displayed dates
         $bookings = array();
-        foreach ($dates as $date) {
-            $date_bookings = $this->database->get_bookings($sheet_id, $date);
+        foreach ($display_dates as $d) {
+            $date_bookings = $this->database->get_bookings($sheet_id, $d);
             foreach ($date_bookings as $booking) {
-                $key = $date . '_' . $booking->time_start . '_' . $booking->time_end . '_' . $booking->slot_number;
+                $key = $d . '_' . $booking->time_start . '_' . $booking->time_end . '_' . $booking->slot_number;
                 $bookings[$key] = $booking->booking_text;
             }
         }
@@ -162,7 +167,7 @@ class Amhorti_Public {
             <thead>
                 <tr>
                     <th class="time-header">Horaires</th>
-                    <?php foreach ($dates as $date): ?>
+                    <?php foreach ($display_dates as $date): ?>
                         <?php 
                         $day_name = date('l', strtotime($date));
                         $french_day = ucfirst($french_days[$day_name]);
@@ -180,14 +185,9 @@ class Amhorti_Public {
                     
                     // Find maximum slots for this time across all days
                     $max_slots = 0;
-                    foreach ($dates as $date) {
+                    foreach ($display_dates as $date) {
                         $day_name = date('l', strtotime($date));
                         $french_day = $french_days[$day_name];
-                        
-                        // Skip inactive days for this sheet
-                        if (!empty($active_days) && !in_array($french_day, $active_days)) {
-                            continue;
-                        }
                         
                         $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
                         
@@ -209,22 +209,11 @@ class Amhorti_Public {
                         </td>
                         <?php endif; ?>
                         
-                        <?php foreach ($dates as $date): ?>
+                        <?php foreach ($display_dates as $date): ?>
                             <?php 
                             $day_name = date('l', strtotime($date));
                             $french_day = $french_days[$day_name];
-                            
-                            // Check if this day is active for this sheet
-                            $day_is_active = empty($active_days) || in_array($french_day, $active_days);
-                            
-                            if (!$day_is_active) {
-                                // Day is not active for this sheet
-                                ?>
-                                <td class="booking-cell disabled inactive-day"></td>
-                                <?php
-                                continue;
-                            }
-                            
+                            // Day already guaranteed active because filtered
                             $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
                             
                             // Check if this time slot exists for this day
