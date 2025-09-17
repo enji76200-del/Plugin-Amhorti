@@ -7,12 +7,14 @@ class Amhorti_Database {
     private $table_bookings;
     private $table_sheets;
     private $table_schedules;
+    private $table_css_settings;
     
     public function __construct() {
         global $wpdb;
         $this->table_bookings = $wpdb->prefix . 'amhorti_bookings';
         $this->table_sheets = $wpdb->prefix . 'amhorti_sheets';
         $this->table_schedules = $wpdb->prefix . 'amhorti_schedules';
+        $this->table_css_settings = $wpdb->prefix . 'amhorti_css_settings';
     }
     
     /**
@@ -46,6 +48,7 @@ class Amhorti_Database {
             name varchar(100) NOT NULL,
             is_active tinyint(1) DEFAULT 1,
             sort_order int(11) DEFAULT 0,
+            days_config text DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id)
         ) $charset_collate;";
@@ -53,19 +56,31 @@ class Amhorti_Database {
         // Schedules table (for admin-configurable time slots)
         $sql_schedules = "CREATE TABLE IF NOT EXISTS {$this->table_schedules} (
             id int(11) NOT NULL AUTO_INCREMENT,
+            sheet_id int(11) DEFAULT NULL,
             day_of_week varchar(20) NOT NULL,
             time_start time NOT NULL,
             time_end time NOT NULL,
             slot_count int(3) NOT NULL DEFAULT 1,
             is_active tinyint(1) DEFAULT 1,
             PRIMARY KEY (id),
-            KEY idx_day (day_of_week)
+            KEY idx_day (day_of_week),
+            KEY idx_sheet_day (sheet_id, day_of_week)
+        ) $charset_collate;";
+        
+        // CSS Settings table for custom styling
+        $sql_css_settings = "CREATE TABLE IF NOT EXISTS {$this->table_css_settings} (
+            id int(11) NOT NULL AUTO_INCREMENT,
+            css_content longtext DEFAULT '',
+            is_active tinyint(1) DEFAULT 1,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id)
         ) $charset_collate;";
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql_bookings);
         dbDelta($sql_sheets);
         dbDelta($sql_schedules);
+        dbDelta($sql_css_settings);
         
         // Insert default data
         $this->insert_default_data();
@@ -257,6 +272,58 @@ class Amhorti_Database {
         $wpdb->query(
             "DELETE FROM {$this->table_bookings} 
             WHERE created_at < DATE_SUB(NOW(), INTERVAL 14 DAY)"
+        );
+    }
+    
+    /**
+     * Get schedules for a specific sheet and day
+     */
+    public function get_schedule_for_sheet_day($sheet_id, $day_of_week) {
+        global $wpdb;
+        
+        // First try to get sheet-specific schedules
+        $sheet_schedules = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$this->table_schedules} 
+                WHERE sheet_id = %d AND day_of_week = %s AND is_active = 1 
+                ORDER BY time_start ASC",
+                $sheet_id, $day_of_week
+            )
+        );
+        
+        // If no sheet-specific schedules, fall back to global schedules
+        if (empty($sheet_schedules)) {
+            return $this->get_schedule_for_day($day_of_week);
+        }
+        
+        return $sheet_schedules;
+    }
+    
+    /**
+     * Get custom CSS
+     */
+    public function get_custom_css() {
+        global $wpdb;
+        
+        return $wpdb->get_var(
+            "SELECT css_content FROM {$this->table_css_settings} 
+            WHERE is_active = 1 
+            ORDER BY updated_at DESC 
+            LIMIT 1"
+        );
+    }
+    
+    /**
+     * Get sheet configuration including days
+     */
+    public function get_sheet_config($sheet_id) {
+        global $wpdb;
+        
+        return $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$this->table_sheets} WHERE id = %d AND is_active = 1",
+                $sheet_id
+            )
         );
     }
 }

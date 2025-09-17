@@ -15,6 +15,7 @@ class Amhorti_Public {
         add_action('wp_ajax_nopriv_amhorti_save_booking', array($this, 'ajax_save_booking'));
         add_action('wp_ajax_amhorti_get_table_data', array($this, 'ajax_get_table_data'));
         add_action('wp_ajax_nopriv_amhorti_get_table_data', array($this, 'ajax_get_table_data'));
+        add_action('wp_head', array($this, 'inject_custom_css'));
     }
     
     /**
@@ -59,9 +60,9 @@ class Amhorti_Public {
             
             <!-- Navigation buttons -->
             <div class="amhorti-navigation">
-                <button class="amhorti-nav-btn" data-direction="prev">← Previous Week</button>
-                <button class="amhorti-nav-btn" data-direction="today">Today</button>
-                <button class="amhorti-nav-btn" data-direction="next">Next Week →</button>
+                <button class="amhorti-nav-btn" data-direction="prev">← Semaine précédente</button>
+                <button class="amhorti-nav-btn" data-direction="today">Aujourd'hui</button>
+                <button class="amhorti-nav-btn" data-direction="next">Semaine suivante →</button>
             </div>
         </div>
         <?php
@@ -76,16 +77,30 @@ class Amhorti_Public {
             $start_date = date('Y-m-d');
         }
         
-        // Calculate the start of the week (Monday)
+        // Always start from today, don't show past dates
+        $today = date('Y-m-d');
+        if ($start_date < $today) {
+            $start_date = $today;
+        }
+        
+        // Calculate the start of the week (Monday) but ensure we don't go before today
         $date = new DateTime($start_date);
         $day_of_week = $date->format('N'); // 1 (Monday) to 7 (Sunday)
-        $date->modify('-' . ($day_of_week - 1) . ' days');
+        $week_start = clone $date;
+        $week_start->modify('-' . ($day_of_week - 1) . ' days');
+        
+        // If week start is before today, start from today
+        $today_date = new DateTime($today);
+        if ($week_start < $today_date) {
+            $week_start = clone $today_date;
+        }
         
         // Generate 7 days from the start date
         $dates = array();
+        $current_date = clone $week_start;
         for ($i = 0; $i < 7; $i++) {
-            $dates[] = $date->format('Y-m-d');
-            $date->modify('+1 day');
+            $dates[] = $current_date->format('Y-m-d');
+            $current_date->modify('+1 day');
         }
         
         // Get French day names
@@ -99,12 +114,26 @@ class Amhorti_Public {
             'Sunday' => 'dimanche'
         );
         
+        // Get sheet configuration
+        $sheet_config = $this->database->get_sheet_config($sheet_id);
+        $active_days = array();
+        if ($sheet_config && $sheet_config->days_config) {
+            $active_days = json_decode($sheet_config->days_config, true) ?: array();
+        }
+        
         // Get all time slots for the week
         $all_time_slots = array();
         foreach ($dates as $date) {
             $day_name = date('l', strtotime($date));
             $french_day = $french_days[$day_name];
-            $day_schedule = $this->database->get_schedule_for_day($french_day);
+            
+            // Skip days that are not active for this sheet
+            if (!empty($active_days) && !in_array($french_day, $active_days)) {
+                continue;
+            }
+            
+            // Get sheet-specific schedule or fall back to global
+            $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
             
             foreach ($day_schedule as $slot) {
                 $time_key = $slot->time_start . '-' . $slot->time_end;
@@ -154,7 +183,13 @@ class Amhorti_Public {
                     foreach ($dates as $date) {
                         $day_name = date('l', strtotime($date));
                         $french_day = $french_days[$day_name];
-                        $day_schedule = $this->database->get_schedule_for_day($french_day);
+                        
+                        // Skip inactive days for this sheet
+                        if (!empty($active_days) && !in_array($french_day, $active_days)) {
+                            continue;
+                        }
+                        
+                        $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
                         
                         foreach ($day_schedule as $slot) {
                             if ($slot->time_start == $start_time && $slot->time_end == $end_time) {
@@ -178,7 +213,19 @@ class Amhorti_Public {
                             <?php 
                             $day_name = date('l', strtotime($date));
                             $french_day = $french_days[$day_name];
-                            $day_schedule = $this->database->get_schedule_for_day($french_day);
+                            
+                            // Check if this day is active for this sheet
+                            $day_is_active = empty($active_days) || in_array($french_day, $active_days);
+                            
+                            if (!$day_is_active) {
+                                // Day is not active for this sheet
+                                ?>
+                                <td class="booking-cell disabled inactive-day"></td>
+                                <?php
+                                continue;
+                            }
+                            
+                            $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
                             
                             // Check if this time slot exists for this day
                             $slot_exists = false;
@@ -190,15 +237,30 @@ class Amhorti_Public {
                             }
                             
                             if ($slot_exists) {
+                                // Check if date is within valid range (today to +7 days)
+                                $today = date('Y-m-d');
+                                $max_date = date('Y-m-d', strtotime('+7 days', strtotime($today)));
+                                $is_valid_date = ($date >= $today && $date <= $max_date);
+                                
                                 $booking_key = $date . '_' . $start_time . '_' . $end_time . '_' . $slot_num;
                                 $booking_text = isset($bookings[$booking_key]) ? $bookings[$booking_key] : '';
+                                
+                                $cell_class = 'booking-cell';
+                                $contenteditable = 'false';
+                                
+                                if ($is_valid_date) {
+                                    $cell_class .= ' editable';
+                                    $contenteditable = 'true';
+                                } else {
+                                    $cell_class .= ' disabled';
+                                }
                                 ?>
-                                <td class="booking-cell editable" 
+                                <td class="<?php echo $cell_class; ?>" 
                                     data-date="<?php echo esc_attr($date); ?>"
                                     data-time-start="<?php echo esc_attr($start_time); ?>"
                                     data-time-end="<?php echo esc_attr($end_time); ?>"
                                     data-slot="<?php echo esc_attr($slot_num); ?>"
-                                    contenteditable="true"
+                                    contenteditable="<?php echo $contenteditable; ?>"
                                     spellcheck="false"><?php echo esc_html($booking_text); ?></td>
                                 <?php
                             } else {
@@ -244,13 +306,13 @@ class Amhorti_Public {
         $slot_number = intval($_POST['slot_number']);
         $booking_text = sanitize_text_field($_POST['booking_text']);
         
-        // Validate date is not too far in the past or future
+        // Validate date is not in the past or more than 7 days in the future
         $booking_date = strtotime($date);
-        $current_date = time();
-        $max_future = strtotime('+30 days');
+        $current_date = strtotime(date('Y-m-d')); // Start of today
+        $max_future = strtotime('+7 days', $current_date);
         
-        if ($booking_date < ($current_date - (7 * 24 * 60 * 60)) || $booking_date > $max_future) {
-            wp_send_json_error('Invalid date range');
+        if ($booking_date < $current_date || $booking_date > $max_future) {
+            wp_send_json_error('Les réservations ne sont possibles que pour les 7 prochains jours');
             return;
         }
         
@@ -260,6 +322,16 @@ class Amhorti_Public {
             wp_send_json_success();
         } else {
             wp_send_json_error('Failed to save booking');
+        }
+    }
+    
+    /**
+     * Inject custom CSS into page head
+     */
+    public function inject_custom_css() {
+        $custom_css = $this->database->get_custom_css();
+        if ($custom_css) {
+            echo "<style type=\"text/css\" id=\"amhorti-custom-css\">\n" . $custom_css . "\n</style>\n";
         }
     }
 }
