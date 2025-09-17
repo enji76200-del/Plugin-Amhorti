@@ -23,8 +23,8 @@ class Amhorti_Admin {
      */
     public function add_admin_menu() {
         add_menu_page(
-            'Amhorti Schedule',
-            'Amhorti Schedule',
+            'Planification Amhorti',
+            'Planification Amhorti',
             'manage_options',
             'amhorti-schedule',
             array($this, 'admin_page'),
@@ -34,8 +34,8 @@ class Amhorti_Admin {
         
         add_submenu_page(
             'amhorti-schedule',
-            'Manage Sheets',
-            'Manage Sheets',
+            'Gérer les Feuilles',
+            'Gérer les Feuilles',
             'manage_options',
             'amhorti-sheets',
             array($this, 'sheets_page')
@@ -43,8 +43,8 @@ class Amhorti_Admin {
         
         add_submenu_page(
             'amhorti-schedule',
-            'Manage Schedules',
-            'Manage Schedules',
+            'Gérer les Horaires',
+            'Gérer les Horaires',
             'manage_options',
             'amhorti-schedules',
             array($this, 'schedules_page')
@@ -60,23 +60,24 @@ class Amhorti_Admin {
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             <div class="amhorti-admin-content">
                 <div class="card">
-                    <h2>Welcome to Amhorti Schedule</h2>
-                    <p>This plugin creates Excel-like scheduling tables with multiple sheets for booking time slots.</p>
+                    <h2>Bienvenue dans Planification Amhorti</h2>
+                    <p>Ce plugin crée des tableaux de planification similaires à Excel avec plusieurs feuilles pour la réservation de créneaux horaires.</p>
                     
-                    <h3>How to use:</h3>
+                    <h3>Comment utiliser :</h3>
                     <ol>
-                        <li>Use the shortcode <code>[amhorti_schedule]</code> to display the schedule table on any page or post</li>
-                        <li>Use the shortcode with a specific sheet: <code>[amhorti_schedule sheet="1"]</code></li>
-                        <li>Manage your sheets and schedules using the menu items</li>
+                        <li>Utilisez le shortcode <code>[amhorti_schedule]</code> pour afficher le tableau de planification sur n'importe quelle page ou article</li>
+                        <li>Utilisez le shortcode avec une feuille spécifique : <code>[amhorti_schedule sheet="1"]</code></li>
+                        <li>Gérez vos feuilles et horaires en utilisant les éléments du menu</li>
                     </ol>
                     
-                    <h3>Features:</h3>
+                    <h3>Fonctionnalités :</h3>
                     <ul>
-                        <li>Excel-like table interface with tabs for different sheets</li>
-                        <li>7-day view starting from current date</li>
-                        <li>Editable cells for user bookings</li>
-                        <li>Automatic cleanup of old bookings (14 days)</li>
-                        <li>Responsive design for mobile and desktop</li>
+                        <li>Interface similaire à Excel avec onglets pour différentes feuilles</li>
+                        <li>Vue sur 7 jours à partir de la date actuelle</li>
+                        <li>Cellules éditables pour les réservations d'utilisateurs</li>
+                        <li>Nettoyage automatique des anciennes réservations (14 jours)</li>
+                        <li>Design responsive pour mobile et desktop</li>
+                        <li>Réservations limitées aux 7 prochains jours</li>
                     </ul>
                 </div>
             </div>
@@ -93,42 +94,42 @@ class Amhorti_Admin {
         
         ?>
         <div class="wrap">
-            <h1>Manage Sheets</h1>
+            <h1>Gérer les Feuilles</h1>
             
             <div class="amhorti-admin-content">
                 <div class="card">
-                    <h2>Add New Sheet</h2>
+                    <h2>Ajouter une Nouvelle Feuille</h2>
                     <form id="amhorti-add-sheet-form">
                         <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
                         <table class="form-table">
                             <tr>
-                                <th scope="row">Sheet Name</th>
+                                <th scope="row">Nom de la Feuille</th>
                                 <td>
                                     <input type="text" name="sheet_name" id="sheet_name" required class="regular-text" />
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Sort Order</th>
+                                <th scope="row">Ordre de Tri</th>
                                 <td>
                                     <input type="number" name="sort_order" id="sort_order" value="<?php echo count($sheets) + 1; ?>" class="small-text" />
                                 </td>
                             </tr>
                         </table>
                         <p class="submit">
-                            <input type="submit" name="submit" id="submit" class="button button-primary" value="Add Sheet" />
+                            <input type="submit" name="submit" id="submit" class="button button-primary" value="Ajouter la Feuille" />
                         </p>
                     </form>
                 </div>
                 
                 <div class="card">
-                    <h2>Existing Sheets</h2>
+                    <h2>Feuilles Existantes</h2>
                     <table class="wp-list-table widefat fixed striped">
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>Name</th>
-                                <th>Sort Order</th>
-                                <th>Status</th>
+                                <th>Nom</th>
+                                <th>Ordre de Tri</th>
+                                <th>Statut</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -138,10 +139,10 @@ class Amhorti_Admin {
                                 <td><?php echo esc_html($sheet->id); ?></td>
                                 <td><?php echo esc_html($sheet->name); ?></td>
                                 <td><?php echo esc_html($sheet->sort_order); ?></td>
-                                <td><?php echo $sheet->is_active ? 'Active' : 'Inactive'; ?></td>
+                                <td><?php echo $sheet->is_active ? 'Actif' : 'Inactif'; ?></td>
                                 <td>
-                                    <button class="button edit-sheet" data-id="<?php echo esc_attr($sheet->id); ?>">Edit</button>
-                                    <button class="button button-link-delete delete-sheet" data-id="<?php echo esc_attr($sheet->id); ?>">Delete</button>
+                                    <button class="button edit-sheet" data-id="<?php echo esc_attr($sheet->id); ?>">Modifier</button>
+                                    <button class="button button-link-delete delete-sheet" data-id="<?php echo esc_attr($sheet->id); ?>">Supprimer</button>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -172,7 +173,7 @@ class Amhorti_Admin {
             });
             
             $('.delete-sheet').on('click', function() {
-                if (confirm('Are you sure you want to delete this sheet?')) {
+                if (confirm('Êtes-vous sûr de vouloir supprimer cette feuille ?')) {
                     var data = {
                         action: 'amhorti_admin_delete_sheet',
                         sheet_id: $(this).data('id'),
@@ -183,7 +184,7 @@ class Amhorti_Admin {
                         if (response.success) {
                             location.reload();
                         } else {
-                            alert('Error: ' + response.data);
+                            alert('Erreur : ' + response.data);
                         }
                     });
                 }
@@ -201,16 +202,16 @@ class Amhorti_Admin {
         
         ?>
         <div class="wrap">
-            <h1>Manage Schedules</h1>
+            <h1>Gérer les Horaires</h1>
             
             <div class="amhorti-admin-content">
                 <div class="card">
-                    <h2>Add New Time Slot</h2>
+                    <h2>Ajouter un Nouveau Créneau</h2>
                     <form id="amhorti-add-schedule-form">
                         <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
                         <table class="form-table">
                             <tr>
-                                <th scope="row">Day of Week</th>
+                                <th scope="row">Jour de la Semaine</th>
                                 <td>
                                     <select name="day_of_week" id="day_of_week" required>
                                         <?php foreach ($days as $day): ?>
@@ -220,26 +221,26 @@ class Amhorti_Admin {
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Start Time</th>
+                                <th scope="row">Heure de Début</th>
                                 <td>
                                     <input type="time" name="time_start" id="time_start" required />
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">End Time</th>
+                                <th scope="row">Heure de Fin</th>
                                 <td>
                                     <input type="time" name="time_end" id="time_end" required />
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Number of Slots</th>
+                                <th scope="row">Nombre de Créneaux</th>
                                 <td>
                                     <input type="number" name="slot_count" id="slot_count" value="2" min="1" max="10" required />
                                 </td>
                             </tr>
                         </table>
                         <p class="submit">
-                            <input type="submit" name="submit" id="submit" class="button button-primary" value="Add Time Slot" />
+                            <input type="submit" name="submit" id="submit" class="button button-primary" value="Ajouter le Créneau" />
                         </p>
                     </form>
                 </div>
@@ -252,10 +253,10 @@ class Amhorti_Admin {
                         <table class="wp-list-table widefat fixed striped">
                             <thead>
                                 <tr>
-                                    <th>Start Time</th>
-                                    <th>End Time</th>
-                                    <th>Slots</th>
-                                    <th>Status</th>
+                                    <th>Heure de Début</th>
+                                    <th>Heure de Fin</th>
+                                    <th>Créneaux</th>
+                                    <th>Statut</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -265,17 +266,17 @@ class Amhorti_Admin {
                                     <td><?php echo esc_html($schedule->time_start); ?></td>
                                     <td><?php echo esc_html($schedule->time_end); ?></td>
                                     <td><?php echo esc_html($schedule->slot_count); ?></td>
-                                    <td><?php echo $schedule->is_active ? 'Active' : 'Inactive'; ?></td>
+                                    <td><?php echo $schedule->is_active ? 'Actif' : 'Inactif'; ?></td>
                                     <td>
-                                        <button class="button edit-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Edit</button>
-                                        <button class="button button-link-delete delete-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Delete</button>
+                                        <button class="button edit-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Modifier</button>
+                                        <button class="button button-link-delete delete-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Supprimer</button>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
                         <?php else: ?>
-                        <p>No time slots configured for this day.</p>
+                        <p>Aucun créneau horaire configuré pour ce jour.</p>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
@@ -299,13 +300,13 @@ class Amhorti_Admin {
                     if (response.success) {
                         location.reload();
                     } else {
-                        alert('Error: ' + response.data);
+                        alert('Erreur : ' + response.data);
                     }
                 });
             });
             
             $('.delete-schedule').on('click', function() {
-                if (confirm('Are you sure you want to delete this time slot?')) {
+                if (confirm('Êtes-vous sûr de vouloir supprimer ce créneau horaire ?')) {
                     var data = {
                         action: 'amhorti_admin_delete_schedule',
                         schedule_id: $(this).data('id'),
@@ -316,7 +317,7 @@ class Amhorti_Admin {
                         if (response.success) {
                             location.reload();
                         } else {
-                            alert('Error: ' + response.data);
+                            alert('Erreur : ' + response.data);
                         }
                     });
                 }

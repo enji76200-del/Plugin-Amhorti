@@ -59,9 +59,9 @@ class Amhorti_Public {
             
             <!-- Navigation buttons -->
             <div class="amhorti-navigation">
-                <button class="amhorti-nav-btn" data-direction="prev">← Previous Week</button>
-                <button class="amhorti-nav-btn" data-direction="today">Today</button>
-                <button class="amhorti-nav-btn" data-direction="next">Next Week →</button>
+                <button class="amhorti-nav-btn" data-direction="prev">← Semaine précédente</button>
+                <button class="amhorti-nav-btn" data-direction="today">Aujourd'hui</button>
+                <button class="amhorti-nav-btn" data-direction="next">Semaine suivante →</button>
             </div>
         </div>
         <?php
@@ -76,16 +76,30 @@ class Amhorti_Public {
             $start_date = date('Y-m-d');
         }
         
-        // Calculate the start of the week (Monday)
+        // Always start from today, don't show past dates
+        $today = date('Y-m-d');
+        if ($start_date < $today) {
+            $start_date = $today;
+        }
+        
+        // Calculate the start of the week (Monday) but ensure we don't go before today
         $date = new DateTime($start_date);
         $day_of_week = $date->format('N'); // 1 (Monday) to 7 (Sunday)
-        $date->modify('-' . ($day_of_week - 1) . ' days');
+        $week_start = clone $date;
+        $week_start->modify('-' . ($day_of_week - 1) . ' days');
+        
+        // If week start is before today, start from today
+        $today_date = new DateTime($today);
+        if ($week_start < $today_date) {
+            $week_start = clone $today_date;
+        }
         
         // Generate 7 days from the start date
         $dates = array();
+        $current_date = clone $week_start;
         for ($i = 0; $i < 7; $i++) {
-            $dates[] = $date->format('Y-m-d');
-            $date->modify('+1 day');
+            $dates[] = $current_date->format('Y-m-d');
+            $current_date->modify('+1 day');
         }
         
         // Get French day names
@@ -190,15 +204,30 @@ class Amhorti_Public {
                             }
                             
                             if ($slot_exists) {
+                                // Check if date is within valid range (today to +7 days)
+                                $today = date('Y-m-d');
+                                $max_date = date('Y-m-d', strtotime('+7 days', strtotime($today)));
+                                $is_valid_date = ($date >= $today && $date <= $max_date);
+                                
                                 $booking_key = $date . '_' . $start_time . '_' . $end_time . '_' . $slot_num;
                                 $booking_text = isset($bookings[$booking_key]) ? $bookings[$booking_key] : '';
+                                
+                                $cell_class = 'booking-cell';
+                                $contenteditable = 'false';
+                                
+                                if ($is_valid_date) {
+                                    $cell_class .= ' editable';
+                                    $contenteditable = 'true';
+                                } else {
+                                    $cell_class .= ' disabled';
+                                }
                                 ?>
-                                <td class="booking-cell editable" 
+                                <td class="<?php echo $cell_class; ?>" 
                                     data-date="<?php echo esc_attr($date); ?>"
                                     data-time-start="<?php echo esc_attr($start_time); ?>"
                                     data-time-end="<?php echo esc_attr($end_time); ?>"
                                     data-slot="<?php echo esc_attr($slot_num); ?>"
-                                    contenteditable="true"
+                                    contenteditable="<?php echo $contenteditable; ?>"
                                     spellcheck="false"><?php echo esc_html($booking_text); ?></td>
                                 <?php
                             } else {
@@ -244,13 +273,13 @@ class Amhorti_Public {
         $slot_number = intval($_POST['slot_number']);
         $booking_text = sanitize_text_field($_POST['booking_text']);
         
-        // Validate date is not too far in the past or future
+        // Validate date is not in the past or more than 7 days in the future
         $booking_date = strtotime($date);
-        $current_date = time();
-        $max_future = strtotime('+30 days');
+        $current_date = strtotime(date('Y-m-d')); // Start of today
+        $max_future = strtotime('+7 days', $current_date);
         
-        if ($booking_date < ($current_date - (7 * 24 * 60 * 60)) || $booking_date > $max_future) {
-            wp_send_json_error('Invalid date range');
+        if ($booking_date < $current_date || $booking_date > $max_future) {
+            wp_send_json_error('Les réservations ne sont possibles que pour les 7 prochains jours');
             return;
         }
         
