@@ -197,63 +197,6 @@ class Amhorti_Admin {
                 });
             });
             
-            // Edit sheet functionality
-            $('.edit-sheet').on('click', function() {
-                var row = $(this).closest('tr');
-                var sheetId = $(this).data('id');
-                
-                // Make cells editable
-                row.find('.editable-cell').each(function() {
-                    var field = $(this).data('field');
-                    var currentValue = $(this).text().trim();
-                    
-                    if (field === 'is_active') {
-                        var select = '<select class="edit-input" data-field="' + field + '">';
-                        select += '<option value="1"' + (currentValue === 'Actif' ? ' selected' : '') + '>Actif</option>';
-                        select += '<option value="0"' + (currentValue === 'Inactif' ? ' selected' : '') + '>Inactif</option>';
-                        select += '</select>';
-                        $(this).html(select);
-                    } else {
-                        var inputType = field === 'sort_order' ? 'number' : 'text';
-                        $(this).html('<input type="' + inputType + '" class="edit-input" data-field="' + field + '" value="' + currentValue + '" />');
-                    }
-                });
-                
-                // Show/hide buttons
-                $(this).hide();
-                row.find('.save-sheet, .cancel-edit').show();
-            });
-            
-            // Save sheet functionality
-            $('.save-sheet').on('click', function() {
-                var row = $(this).closest('tr');
-                var sheetId = $(this).data('id');
-                var data = {
-                    action: 'amhorti_admin_edit_sheet',
-                    sheet_id: sheetId,
-                    nonce: $('#amhorti_admin_nonce').val()
-                };
-                
-                // Collect edited values
-                row.find('.edit-input').each(function() {
-                    var field = $(this).data('field');
-                    data[field] = $(this).val();
-                });
-                
-                $.post(ajaxurl, data, function(response) {
-                    if (response.success) {
-                        location.reload();
-                    } else {
-                        alert('Erreur : ' + response.data);
-                    }
-                });
-            });
-            
-            // Cancel edit functionality
-            $('.cancel-edit').on('click', function() {
-                location.reload();
-            });
-            
             $('.delete-sheet').on('click', function() {
                 if (confirm('Êtes-vous sûr de vouloir supprimer cette feuille ?')) {
                     var data = {
@@ -749,7 +692,7 @@ class Amhorti_Admin {
                     sheet_id: sheetId,
                     sheet_name: form.find('input[name="sheet_name"]').val(),
                     active_days: activeDays,
-                    nonce: form.find('#amhorti_admin_nonce').val()
+                    nonce: form.find('input[name="amhorti_admin_nonce"]').val()
                 };
                 
                 $.post(ajaxurl, data, function(response) {

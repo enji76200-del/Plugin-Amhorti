@@ -44,6 +44,36 @@
                 var scheduleId = $(this).data('id');
                 self.editSchedule(scheduleId);
             });
+            
+            // Save sheet functionality
+            $(document).on('click', '.save-sheet', function() {
+                var row = $(this).closest('tr');
+                var sheetId = $(this).data('id');
+                var data = {
+                    action: 'amhorti_admin_edit_sheet',
+                    sheet_id: sheetId,
+                    nonce: $('[name="amhorti_admin_nonce"]').val()
+                };
+                
+                // Collect edited values
+                row.find('.edit-input').each(function() {
+                    var field = $(this).data('field');
+                    data[field] = $(this).val();
+                });
+                
+                $.post(ajaxurl, data, function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        self.showMessage('Erreur : ' + response.data, 'error');
+                    }
+                });
+            });
+            
+            // Cancel edit functionality
+            $(document).on('click', '.cancel-edit', function() {
+                location.reload();
+            });
         },
         
         handleSheetForm: function(form) {
@@ -217,8 +247,28 @@
         },
         
         editSheet: function(sheetId) {
-            // Placeholder for edit functionality
-            alert('Edit functionality will be implemented in a future version');
+            var row = $('[data-sheet-id="' + sheetId + '"]');
+            
+            // Make cells editable
+            row.find('.editable-cell').each(function() {
+                var field = $(this).data('field');
+                var currentValue = $(this).text().trim();
+                
+                if (field === 'is_active') {
+                    var select = '<select class="edit-input" data-field="' + field + '">';
+                    select += '<option value="1"' + (currentValue === 'Actif' ? ' selected' : '') + '>Actif</option>';
+                    select += '<option value="0"' + (currentValue === 'Inactif' ? ' selected' : '') + '>Inactif</option>';
+                    select += '</select>';
+                    $(this).html(select);
+                } else {
+                    var inputType = field === 'sort_order' ? 'number' : 'text';
+                    $(this).html('<input type="' + inputType + '" class="edit-input" data-field="' + field + '" value="' + currentValue + '" />');
+                }
+            });
+            
+            // Show/hide buttons
+            row.find('.edit-sheet').hide();
+            row.find('.save-sheet, .cancel-edit').show();
         },
         
         editSchedule: function(scheduleId) {

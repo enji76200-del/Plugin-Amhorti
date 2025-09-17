@@ -119,6 +119,49 @@
     box-shadow: 0 0 0 1px #0073aa;
 }
 
+/* Inline editing styles */
+.editable-cell {
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.editable-cell:hover {
+    background-color: #f0f8ff;
+}
+
+.edit-input {
+    width: 100%;
+    padding: 4px 6px;
+    margin: 0;
+    border: 1px solid #0073aa;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.save-sheet, .cancel-edit {
+    margin-left: 5px;
+}
+
+.amhorti-admin-message {
+    padding: 10px 15px;
+    margin: 10px 0;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.amhorti-admin-message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.amhorti-admin-message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
 /* Welcome page styles */
 .amhorti-admin-content h3 {
     color: #23282d;
