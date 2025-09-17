@@ -24,6 +24,7 @@ class Amhorti_Admin {
         add_action('wp_ajax_amhorti_admin_update_schedule', array($this, 'ajax_update_schedule'));
         add_action('wp_ajax_amhorti_admin_get_schedule', array($this, 'ajax_get_schedule'));
         add_action('wp_ajax_amhorti_admin_restore_defaults', array($this, 'ajax_restore_defaults'));
+        add_action('wp_ajax_amhorti_admin_clone_globals_for_sheet', array($this, 'ajax_clone_globals_for_sheet'));
     }
     
     /**
@@ -646,23 +647,16 @@ class Amhorti_Admin {
     public function advanced_page() {
         $sheets = $this->database->get_sheets();
         $days_options = array(
-            'lundi' => 'Lundi',
-            'mardi' => 'Mardi', 
-            'mercredi' => 'Mercredi',
-            'jeudi' => 'Jeudi',
-            'vendredi' => 'Vendredi',
-            'samedi' => 'Samedi',
-            'dimanche' => 'Dimanche'
+            'lundi' => 'Lundi', 'mardi' => 'Mardi', 'mercredi' => 'Mercredi', 'jeudi' => 'Jeudi', 'vendredi' => 'Vendredi', 'samedi' => 'Samedi', 'dimanche' => 'Dimanche'
         );
-        
         ?>
         <div class="wrap">
             <h1>Configuration Avancée des Feuilles</h1>
-            
             <div class="amhorti-admin-content">
                 <?php foreach ($sheets as $sheet): ?>
                 <div class="card">
                     <h2>Configuration de "<?php echo esc_html($sheet->name); ?>"</h2>
+                    <p><button type="button" class="button clone-globals-btn" data-sheet-id="<?php echo esc_attr($sheet->id); ?>">Cloner les horaires globaux manquants</button></p>
                     <form class="amhorti-sheet-config-form" data-sheet-id="<?php echo esc_attr($sheet->id); ?>">
                         <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
                         <table class="form-table">
@@ -784,6 +778,13 @@ class Amhorti_Admin {
                         alert('Erreur : ' + response.data);
                     }
                 });
+            });
+            
+            $(document).on('click','.clone-globals-btn',function(){
+                if(!confirm('Cloner les horaires globaux manquants vers cette feuille ?')) return;
+                var sheetId=$(this).data('sheet-id');
+                $.post(ajaxurl,{action:'amhorti_admin_clone_globals_for_sheet',sheet_id:sheetId,nonce:$('#amhorti_admin_nonce').val()},function(r){
+                    if(r.success){alert('Horaires clonés: '+r.data.cloned);location.reload();} else {alert('Erreur: '+r.data);} });
             });
         });
         </script>
@@ -1275,5 +1276,22 @@ class Amhorti_Admin {
         </div>
         <?php
         return ob_get_clean();
+    }
+
+    /**
+     * AJAX: clone global schedules to a specific sheet
+     */
+    public function ajax_clone_globals_for_sheet() {
+        check_ajax_referer('amhorti_admin_nonce','nonce');
+        if(!current_user_can('manage_options')) wp_die('Unauthorized');
+        global $wpdb; $table=$wpdb->prefix.'amhorti_schedules';
+        $sheet_id=intval($_POST['sheet_id']);
+        if($sheet_id<=0) wp_send_json_error('Feuille invalide');
+        $globals=$wpdb->get_results("SELECT day_of_week,time_start,time_end,slot_count FROM $table WHERE (sheet_id IS NULL OR sheet_id=0) AND is_active=1");
+        if(!$globals) wp_send_json_error('Aucun horaire global');
+        $existing=$wpdb->get_results($wpdb->prepare("SELECT day_of_week,time_start,time_end FROM $table WHERE sheet_id=%d AND is_active=1",$sheet_id));
+        $map=array(); foreach($existing as $e){$map[$e->day_of_week.'|'.$e->time_start.'|'.$e->time_end]=true;}
+        $cloned=0; foreach($globals as $g){$k=$g->day_of_week.'|'.$g->time_start.'|'.$g->time_end; if(!isset($map[$k])){ if($wpdb->insert($table,array('sheet_id'=>$sheet_id,'day_of_week'=>$g->day_of_week,'time_start'=>$g->time_start,'time_end'=>$g->time_end,'slot_count'=>$g->slot_count))) $cloned++; }}
+        wp_send_json_success(array('cloned'=>$cloned));
     }
 }
