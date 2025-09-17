@@ -11,6 +11,11 @@ Un plugin WordPress qui crée un tableau de planification similaire à Excel ave
 - **Nettoyage automatique** : Suppression automatique des données après 14 jours
 - **Design responsive** : Interface moderne adaptée mobile et desktop
 - **Créneaux configurables** : Horaires et nombre de créneaux modifiables par jour
+- **🆕 Restriction temporelle** : Réservations limitées aux 7 prochains jours uniquement
+- **🆕 Configuration avancée des feuilles** : Possibilité de configurer les jours actifs par feuille
+- **🆕 Horaires spécifiques par feuille** : Chaque feuille peut avoir ses propres horaires
+- **🆕 Éditeur CSS intégré** : Interface pour personnaliser l'apparence avec prévisualisation en temps réel
+- **🆕 Interface en français** : Navigation et administration entièrement traduites
 
 ## Installation
 
@@ -73,15 +78,32 @@ Pour afficher une feuille spécifique :
 
 ### Administration
 
-1. Rendez-vous dans **Amhorti Schedule** dans le menu d'administration
-2. Utilisez **Manage Sheets** pour ajouter/supprimer des feuilles
-3. Utilisez **Manage Schedules** pour configurer les horaires par jour
+1. Rendez-vous dans **Planification Amhorti** dans le menu d'administration
+2. Utilisez **Gérer les Feuilles** pour ajouter/supprimer des feuilles
+3. Utilisez **Gérer les Horaires** pour configurer les horaires par jour
+4. **🆕 Configuration Avancée** : Configurez les jours actifs et horaires spécifiques par feuille
+5. **🆕 Éditeur CSS** : Personnalisez l'apparence du tableau avec prévisualisation en temps réel
+
+#### Nouvelles fonctionnalités d'administration
+
+**Configuration Avancée des Feuilles** :
+- Modification du nom des feuilles
+- Sélection des jours de la semaine actifs par feuille (par exemple : une feuille uniquement pour les dimanches)
+- Création d'horaires spécifiques à chaque feuille
+- Interface intuitive pour une gestion fine des plannings
+
+**Éditeur CSS Intégré** :
+- Éditeur de code avec syntaxe highlighting
+- Prévisualisation en temps réel des modifications
+- Sauvegarde automatique des styles personnalisés
+- Réinitialisation facile aux styles par défaut
 
 ### Navigation
 
 - **Onglets** : Cliquez sur les onglets pour changer de feuille
-- **Navigation temporelle** : Utilisez les boutons "Previous Week", "Today", "Next Week"
+- **Navigation temporelle** : Utilisez les boutons "Semaine précédente", "Aujourd'hui", "Semaine suivante"
 - **Édition** : Cliquez dans les cellules pour écrire du texte (nom, prénom, etc.)
+- **🆕 Restriction** : Seules les cellules des 7 prochains jours sont éditables
 
 ## Permissions
 
@@ -92,10 +114,11 @@ Pour afficher une feuille spécifique :
 
 ### Structure de la base de données
 
-Le plugin crée 3 tables :
+Le plugin crée 4 tables :
 - `wp_amhorti_bookings` : Stockage des réservations
-- `wp_amhorti_sheets` : Configuration des feuilles
-- `wp_amhorti_schedules` : Configuration des horaires
+- `wp_amhorti_sheets` : Configuration des feuilles (avec config des jours actifs)
+- `wp_amhorti_schedules` : Configuration des horaires (globaux et par feuille)
+- `wp_amhorti_css_settings` : **🆕** Stockage du CSS personnalisé
 
 ### Technologies utilisées
 
@@ -103,11 +126,42 @@ Le plugin crée 3 tables :
 - **JavaScript/jQuery** : Interface interactive
 - **CSS** : Design responsive moderne
 - **AJAX** : Sauvegarde en temps réel
+- **JSON** : Configuration des jours actifs par feuille
 
 ### Nettoyage automatique
 
 - Les réservations sont automatiquement supprimées après 14 jours
 - Tâche cron programmée quotidiennement
+- **🆕** Les dates antérieures à aujourd'hui ne sont plus affichées
+
+### Sécurité et Restrictions
+
+- **🆕** Réservations limitées aux 7 prochains jours maximum
+- Validation côté serveur et client
+- Protection CSRF avec nonces WordPress
+- Sanitisation de toutes les entrées utilisateur
+
+## Exemples d'utilisation
+
+### Configuration par feuille
+- **Feuille 1** : Planning général (tous les jours sauf dimanche)
+- **Feuille 2** : Planning du week-end (samedi et dimanche uniquement)
+- **Feuille 3** : Planning spécial (jours personnalisés avec horaires spécifiques)
+- **Feuille 4** : Planning professionnel (lundi à vendredi uniquement)
+
+### Personnalisation CSS
+```css
+/* Exemple de personnalisation */
+.amhorti-schedule-table {
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.booking-cell.editable {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+```
 
 ## Support
 

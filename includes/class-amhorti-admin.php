@@ -19,6 +19,7 @@ class Amhorti_Admin {
         add_action('wp_ajax_amhorti_admin_update_sheet', array($this, 'ajax_update_sheet'));
         add_action('wp_ajax_amhorti_admin_save_css', array($this, 'ajax_save_css'));
         add_action('wp_ajax_amhorti_admin_get_css', array($this, 'ajax_get_css'));
+        add_action('wp_ajax_amhorti_admin_add_sheet_schedule', array($this, 'ajax_add_sheet_schedule'));
     }
     
     /**
@@ -512,7 +513,7 @@ class Amhorti_Admin {
                     
                     <h3>Horaires Spécifiques à cette Feuille</h3>
                     <form class="amhorti-sheet-schedule-form" data-sheet-id="<?php echo esc_attr($sheet->id); ?>">
-                        <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
+                        <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce_schedule_' . $sheet->id); ?>
                         <table class="form-table">
                             <tr>
                                 <th scope="row">Jour</th>
@@ -573,6 +574,31 @@ class Amhorti_Admin {
                 $.post(ajaxurl, data, function(response) {
                     if (response.success) {
                         alert('Configuration sauvegardée avec succès !');
+                    } else {
+                        alert('Erreur : ' + response.data);
+                    }
+                });
+            });
+            
+            $('.amhorti-sheet-schedule-form').on('submit', function(e) {
+                e.preventDefault();
+                var form = $(this);
+                var sheetId = form.data('sheet-id');
+                
+                var data = {
+                    action: 'amhorti_admin_add_sheet_schedule',
+                    sheet_id: sheetId,
+                    day_of_week: form.find('select[name="day_of_week"]').val(),
+                    time_start: form.find('input[name="time_start"]').val(),
+                    time_end: form.find('input[name="time_end"]').val(),
+                    slot_count: form.find('input[name="slot_count"]').val(),
+                    nonce: form.find('input[name*="amhorti_admin_nonce"]').val()
+                };
+                
+                $.post(ajaxurl, data, function(response) {
+                    if (response.success) {
+                        alert('Horaire ajouté avec succès !');
+                        location.reload();
                     } else {
                         alert('Erreur : ' + response.data);
                     }
@@ -878,5 +904,36 @@ class Amhorti_Admin {
         $css = $wpdb->get_var("SELECT css_content FROM $table_css WHERE is_active = 1 LIMIT 1");
         
         wp_send_json_success(array('css' => $css ?: ''));
+    }
+    
+    /**
+     * AJAX handler for adding sheet-specific schedules
+     */
+    public function ajax_add_sheet_schedule() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+        
+        global $wpdb;
+        $table_schedules = $wpdb->prefix . 'amhorti_schedules';
+        
+        $result = $wpdb->insert(
+            $table_schedules,
+            array(
+                'sheet_id' => intval($_POST['sheet_id']),
+                'day_of_week' => sanitize_text_field($_POST['day_of_week']),
+                'time_start' => sanitize_text_field($_POST['time_start']),
+                'time_end' => sanitize_text_field($_POST['time_end']),
+                'slot_count' => intval($_POST['slot_count'])
+            )
+        );
+        
+        if ($result !== false) {
+            wp_send_json_success();
+        } else {
+            wp_send_json_error('Échec de l\'ajout de l\'horaire');
+        }
     }
 }
