@@ -291,6 +291,40 @@ class Amhorti_Public {
                 echo '<p><label>Nombre max de jours à l\'avance <input type="number" name="max_booking_days" min="7" max="3650" value="'.esc_attr($max_days).'" class="small-text" /></label> <span class="description">(>= 7, ex: 30, 60, 365)</span></p>';
                 echo '<p><button type="submit" class="button button-primary">Sauvegarder</button></p>';
             echo '</form></div>';
+
+                // Sheet-specific schedules management
+                echo '<div class="card">';
+                echo '<h3>Horaires spécifiques à cette feuille</h3>';
+                echo '<form class="amhorti-sheet-schedule-form-front" data-sheet-id="'.esc_attr($sheet->id).'">';
+                wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce_schedule_' . $sheet->id);
+                echo '<p><label>Jour <select name="day_of_week">';
+                foreach($days_options as $k=>$label){ echo '<option value="'.esc_attr($k).'">'.esc_html($label).'</option>'; }
+                echo '</select></label></p>';
+                echo '<p><label>Heure de Début <input type="time" name="time_start" required></label></p>';
+                echo '<p><label>Heure de Fin <input type="time" name="time_end" required></label></p>';
+                echo '<p><label>Nombre de Créneaux <input type="number" name="slot_count" value="2" min="1" max="10" required></label></p>';
+                echo '<p><button type="submit" class="button">Ajouter Horaire</button></p>';
+                echo '</form>';
+
+                // Existing schedules table
+                $sheet_schedules = $this->database->get_schedules_for_sheet($sheet->id);
+                echo '<h4>Horaires Existants</h4>';
+                if (!empty($sheet_schedules)) {
+                    echo '<table class="wp-list-table widefat fixed striped"><thead><tr><th>Jour</th><th>Début</th><th>Fin</th><th>Créneaux</th><th>Actions</th></tr></thead><tbody>';
+                    foreach($sheet_schedules as $sch){
+                        echo '<tr>';
+                        echo '<td>'.esc_html(ucfirst($sch->day_of_week)).'</td>';
+                        echo '<td>'.esc_html($sch->time_start).'</td>';
+                        echo '<td>'.esc_html($sch->time_end).'</td>';
+                        echo '<td>'.esc_html($sch->slot_count).'</td>';
+                        echo '<td><button class="button delete-sheet-schedule-front" data-id="'.esc_attr($sch->id).'">Supprimer</button></td>';
+                        echo '</tr>';
+                    }
+                    echo '</tbody></table>';
+                } else {
+                    echo '<p>Aucun horaire spécifique configuré pour cette feuille.</p>';
+                }
+                echo '</div>';
         }
         ?>
         <script>
@@ -309,6 +343,31 @@ class Amhorti_Public {
                         max_booking_days: form.find('input[name="max_booking_days"]').val(),
                     nonce: $('.amhorti-admin-frontend').data('nonce')
                 }, function(resp){ if(resp.success){ alert('Configuration sauvegardée'); } else { alert('Erreur: '+resp.data); } });
+            });
+
+            // Add sheet-specific schedule
+            $(document).on('submit', '.amhorti-sheet-schedule-form-front', function(e){
+                e.preventDefault();
+                var form = $(this);
+                $.post(amhorti_admin_ajax.ajax_url, {
+                    action: 'amhorti_admin_add_sheet_schedule',
+                    sheet_id: form.data('sheet-id'),
+                    day_of_week: form.find('select[name="day_of_week"]').val(),
+                    time_start: form.find('input[name="time_start"]').val(),
+                    time_end: form.find('input[name="time_end"]').val(),
+                    slot_count: form.find('input[name="slot_count"]').val(),
+                    nonce: $('.amhorti-admin-frontend').data('nonce')
+                }, function(resp){ if(resp.success){ alert('Horaire ajouté'); location.reload(); } else { alert('Erreur: '+resp.data); } });
+            });
+
+            // Delete sheet-specific schedule
+            $(document).on('click', '.delete-sheet-schedule-front', function(){
+                if(!confirm('Supprimer cet horaire ?')) return;
+                $.post(amhorti_admin_ajax.ajax_url, {
+                    action: 'amhorti_admin_delete_schedule',
+                    schedule_id: $(this).data('id'),
+                    nonce: $('.amhorti-admin-frontend').data('nonce')
+                }, function(resp){ if(resp.success){ location.reload(); } else { alert('Erreur: '+resp.data); } });
             });
         })(jQuery);
         </script>

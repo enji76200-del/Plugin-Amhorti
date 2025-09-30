@@ -317,6 +317,19 @@ class Amhorti_Database {
         
         return $sheet_schedules;
     }
+
+    /**
+     * Get all active schedules for a specific sheet (sheet-specific only)
+     */
+    public function get_schedules_for_sheet($sheet_id) {
+        global $wpdb;
+        return $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$this->table_schedules} WHERE sheet_id = %d AND is_active = 1 ORDER BY day_of_week, time_start",
+                $sheet_id
+            )
+        );
+    }
     
     /**
      * Get custom CSS
