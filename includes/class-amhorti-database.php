@@ -49,6 +49,8 @@ class Amhorti_Database {
             is_active tinyint(1) DEFAULT 1,
             sort_order int(11) DEFAULT 0,
             days_config text DEFAULT NULL,
+            allow_beyond_7_days tinyint(1) DEFAULT 0,
+            max_booking_days int(11) DEFAULT 7,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id)
         ) $charset_collate;";
@@ -84,6 +86,23 @@ class Amhorti_Database {
         
         // Insert default data
         $this->insert_default_data();
+    }
+
+    /**
+     * Ensure schema is up to date (lightweight migration)
+     */
+    public function ensure_schema() {
+        global $wpdb;
+        // Add allow_beyond_7_days column if missing
+        $col = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_sheets} LIKE %s", 'allow_beyond_7_days'));
+        if (!$col) {
+            $wpdb->query("ALTER TABLE {$this->table_sheets} ADD COLUMN allow_beyond_7_days TINYINT(1) DEFAULT 0");
+        }
+        // Add max_booking_days column if missing
+        $col2 = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_sheets} LIKE %s", 'max_booking_days'));
+        if (!$col2) {
+            $wpdb->query("ALTER TABLE {$this->table_sheets} ADD COLUMN max_booking_days INT(11) DEFAULT 7");
+        }
     }
     
     /**
@@ -297,6 +316,19 @@ class Amhorti_Database {
         }
         
         return $sheet_schedules;
+    }
+
+    /**
+     * Get all active schedules for a specific sheet (sheet-specific only)
+     */
+    public function get_schedules_for_sheet($sheet_id) {
+        global $wpdb;
+        return $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$this->table_schedules} WHERE sheet_id = %d AND is_active = 1 ORDER BY day_of_week, time_start",
+                $sheet_id
+            )
+        );
     }
     
     /**

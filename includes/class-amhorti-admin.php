@@ -355,7 +355,7 @@ class Amhorti_Admin {
     public function ajax_save_sheet() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -383,7 +383,7 @@ class Amhorti_Admin {
     public function ajax_save_schedule() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -413,7 +413,7 @@ class Amhorti_Admin {
     public function ajax_delete_sheet() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -439,7 +439,7 @@ class Amhorti_Admin {
     public function ajax_delete_schedule() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -503,6 +503,19 @@ class Amhorti_Admin {
                                         <?php echo esc_html($day_label); ?>
                                     </label><br>
                                     <?php endforeach; ?>
+                                    <hr />
+                                    <?php $allow_beyond = isset($sheet->allow_beyond_7_days) ? intval($sheet->allow_beyond_7_days) : 0; ?>
+                                    <label>
+                                        <input type="checkbox" name="allow_beyond_7_days" value="1" <?php checked(1, $allow_beyond); ?> />
+                                        Autoriser les inscriptions au-delà de +7 jours
+                                    </label>
+                                    <p style="margin-top:8px;">
+                                        <?php $max_days = isset($sheet->max_booking_days) ? intval($sheet->max_booking_days) : 7; ?>
+                                        <label>Nombre max de jours à l'avance
+                                            <input type="number" name="max_booking_days" min="7" max="3650" value="<?php echo esc_attr($max_days); ?>" class="small-text" />
+                                        </label>
+                                        <span class="description">(>= 7, ex: 30, 60, 365)</span>
+                                    </p>
                                 </td>
                             </tr>
                         </table>
@@ -568,6 +581,8 @@ class Amhorti_Admin {
                     sheet_id: sheetId,
                     sheet_name: form.find('input[name="sheet_name"]').val(),
                     active_days: activeDays,
+                    allow_beyond_7_days: form.find('input[name="allow_beyond_7_days"]').is(':checked') ? 1 : 0,
+            max_booking_days: form.find('input[name="max_booking_days"]').val(),
                     nonce: form.find('#amhorti_admin_nonce').val()
                 };
                 
@@ -823,7 +838,7 @@ class Amhorti_Admin {
     public function ajax_update_sheet() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -832,13 +847,17 @@ class Amhorti_Admin {
         
         $sheet_id = intval($_POST['sheet_id']);
         $sheet_name = sanitize_text_field($_POST['sheet_name']);
-        $active_days = isset($_POST['active_days']) ? $_POST['active_days'] : array();
+    $active_days = isset($_POST['active_days']) ? $_POST['active_days'] : array();
+    $allow_beyond_7_days = isset($_POST['allow_beyond_7_days']) ? intval($_POST['allow_beyond_7_days']) : 0;
+    $max_booking_days = isset($_POST['max_booking_days']) ? max(7, intval($_POST['max_booking_days'])) : 7;
         
         $result = $wpdb->update(
             $table_sheets,
             array(
                 'name' => $sheet_name,
-                'days_config' => json_encode($active_days)
+                'days_config' => json_encode($active_days),
+                'allow_beyond_7_days' => $allow_beyond_7_days,
+                'max_booking_days' => $max_booking_days
             ),
             array('id' => $sheet_id)
         );
@@ -856,7 +875,7 @@ class Amhorti_Admin {
     public function ajax_save_css() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -894,7 +913,7 @@ class Amhorti_Admin {
     public function ajax_get_css() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -912,7 +931,7 @@ class Amhorti_Admin {
     public function ajax_add_sheet_schedule() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
