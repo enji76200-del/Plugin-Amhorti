@@ -27,6 +27,11 @@ require_once AMHORTI_PLUGIN_PATH . 'includes/class-amhorti-public.php';
 
 // Initialize the plugin
 function amhorti_schedule_init() {
+    // Ensure DB schema is up-to-date even without reactivation
+    $db = new Amhorti_Database();
+    if (method_exists($db, 'ensure_schema')) {
+        $db->ensure_schema();
+    }
     $plugin = new Amhorti_Schedule();
     $plugin->run();
 }

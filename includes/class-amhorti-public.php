@@ -287,7 +287,9 @@ class Amhorti_Public {
             $allow_beyond = isset($sheet->allow_beyond_7_days) ? intval($sheet->allow_beyond_7_days) : 0;
             echo '</p>';
             echo '<p><label><input type="checkbox" name="allow_beyond_7_days" value="1" '.($allow_beyond ? 'checked' : '').'/> Autoriser les inscriptions au-delà de +7 jours</label></p>';
-            echo '<p><button type="submit" class="button button-primary">Sauvegarder</button></p>';
+                $max_days = isset($sheet->max_booking_days) ? intval($sheet->max_booking_days) : 7;
+                echo '<p><label>Nombre max de jours à l\'avance <input type="number" name="max_booking_days" min="7" max="3650" value="'.esc_attr($max_days).'" class="small-text" /></label> <span class="description">(>= 7, ex: 30, 60, 365)</span></p>';
+                echo '<p><button type="submit" class="button button-primary">Sauvegarder</button></p>';
             echo '</form></div>';
         }
         ?>
@@ -303,7 +305,8 @@ class Amhorti_Public {
                     sheet_id: form.data('sheet-id'),
                     sheet_name: form.find('input[name="sheet_name"]').val(),
                     active_days: activeDays,
-                    allow_beyond_7_days: form.find('input[name="allow_beyond_7_days"]').is(':checked') ? 1 : 0,
+                        allow_beyond_7_days: form.find('input[name="allow_beyond_7_days"]').is(':checked') ? 1 : 0,
+                        max_booking_days: form.find('input[name="max_booking_days"]').val(),
                     nonce: $('.amhorti-admin-frontend').data('nonce')
                 }, function(resp){ if(resp.success){ alert('Configuration sauvegardée'); } else { alert('Erreur: '+resp.data); } });
             });
@@ -504,7 +507,14 @@ class Amhorti_Public {
                             if ($slot_exists) {
                                 // Check if date is within valid range
                                 $today = date('Y-m-d');
-                                $max_days = (!empty($sheet_config) && !empty($sheet_config->allow_beyond_7_days) && intval($sheet_config->allow_beyond_7_days) === 1) ? 365 : 7;
+                                $max_days = 7;
+                                if (!empty($sheet_config)) {
+                                    if (!empty($sheet_config->max_booking_days)) {
+                                        $max_days = max(7, intval($sheet_config->max_booking_days));
+                                    } elseif (!empty($sheet_config->allow_beyond_7_days) && intval($sheet_config->allow_beyond_7_days) === 1) {
+                                        $max_days = 365;
+                                    }
+                                }
                                 $max_date = date('Y-m-d', strtotime('+' . $max_days . ' days', strtotime($today)));
                                 $is_valid_date = ($date >= $today && $date <= $max_date);
                                 
@@ -577,8 +587,12 @@ class Amhorti_Public {
         $current_date = strtotime(date('Y-m-d')); // Start of today
         $max_days = 7;
         $sheet_config = $this->database->get_sheet_config($sheet_id);
-        if ($sheet_config && !empty($sheet_config->allow_beyond_7_days) && intval($sheet_config->allow_beyond_7_days) === 1) {
-            $max_days = 365;
+        if ($sheet_config) {
+            if (!empty($sheet_config->max_booking_days)) {
+                $max_days = max(7, intval($sheet_config->max_booking_days));
+            } elseif (!empty($sheet_config->allow_beyond_7_days) && intval($sheet_config->allow_beyond_7_days) === 1) {
+                $max_days = 365;
+            }
         }
         $max_future = strtotime('+' . $max_days . ' days', $current_date);
         
