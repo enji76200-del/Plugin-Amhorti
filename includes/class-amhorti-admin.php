@@ -503,6 +503,12 @@ class Amhorti_Admin {
                                         <?php echo esc_html($day_label); ?>
                                     </label><br>
                                     <?php endforeach; ?>
+                                    <hr />
+                                    <?php $allow_beyond = isset($sheet->allow_beyond_7_days) ? intval($sheet->allow_beyond_7_days) : 0; ?>
+                                    <label>
+                                        <input type="checkbox" name="allow_beyond_7_days" value="1" <?php checked(1, $allow_beyond); ?> />
+                                        Autoriser les inscriptions au-delà de +7 jours
+                                    </label>
                                 </td>
                             </tr>
                         </table>
@@ -568,6 +574,7 @@ class Amhorti_Admin {
                     sheet_id: sheetId,
                     sheet_name: form.find('input[name="sheet_name"]').val(),
                     active_days: activeDays,
+                    allow_beyond_7_days: form.find('input[name="allow_beyond_7_days"]').is(':checked') ? 1 : 0,
                     nonce: form.find('#amhorti_admin_nonce').val()
                 };
                 
@@ -832,13 +839,15 @@ class Amhorti_Admin {
         
         $sheet_id = intval($_POST['sheet_id']);
         $sheet_name = sanitize_text_field($_POST['sheet_name']);
-        $active_days = isset($_POST['active_days']) ? $_POST['active_days'] : array();
+    $active_days = isset($_POST['active_days']) ? $_POST['active_days'] : array();
+    $allow_beyond_7_days = isset($_POST['allow_beyond_7_days']) ? intval($_POST['allow_beyond_7_days']) : 0;
         
         $result = $wpdb->update(
             $table_sheets,
             array(
                 'name' => $sheet_name,
-                'days_config' => json_encode($active_days)
+                'days_config' => json_encode($active_days),
+                'allow_beyond_7_days' => $allow_beyond_7_days
             ),
             array('id' => $sheet_id)
         );

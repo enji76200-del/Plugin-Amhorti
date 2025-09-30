@@ -60,6 +60,7 @@ add_action('init', 'amhorti_ensure_roles_caps');
 register_activation_hook(__FILE__, 'amhorti_schedule_activate');
 function amhorti_schedule_activate() {
     $database = new Amhorti_Database();
+    $database->ensure_schema();
     $database->create_tables();
 
     // Ensure roles and capabilities are set on activation

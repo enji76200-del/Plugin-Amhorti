@@ -284,7 +284,10 @@ class Amhorti_Public {
                 $checked = in_array($k,$active_days) ? 'checked' : '';
                 echo '<label><input type="checkbox" name="active_days[]" value="'.esc_attr($k).'" '.$checked.'/> '.esc_html($label).'</label> ';
             }
-            echo '</p><p><button type="submit" class="button button-primary">Sauvegarder</button></p>';
+            $allow_beyond = isset($sheet->allow_beyond_7_days) ? intval($sheet->allow_beyond_7_days) : 0;
+            echo '</p>';
+            echo '<p><label><input type="checkbox" name="allow_beyond_7_days" value="1" '.($allow_beyond ? 'checked' : '').'/> Autoriser les inscriptions au-delà de +7 jours</label></p>';
+            echo '<p><button type="submit" class="button button-primary">Sauvegarder</button></p>';
             echo '</form></div>';
         }
         ?>
@@ -300,6 +303,7 @@ class Amhorti_Public {
                     sheet_id: form.data('sheet-id'),
                     sheet_name: form.find('input[name="sheet_name"]').val(),
                     active_days: activeDays,
+                    allow_beyond_7_days: form.find('input[name="allow_beyond_7_days"]').is(':checked') ? 1 : 0,
                     nonce: $('.amhorti-admin-frontend').data('nonce')
                 }, function(resp){ if(resp.success){ alert('Configuration sauvegardée'); } else { alert('Erreur: '+resp.data); } });
             });
@@ -392,17 +396,22 @@ class Amhorti_Public {
         if ($sheet_config && $sheet_config->days_config) {
             $active_days = json_decode($sheet_config->days_config, true) ?: array();
         }
+
+        // Filter dates to only include active days for this sheet (if configured)
+        $display_dates = array();
+        foreach ($dates as $date_item) {
+            $day_name = date('l', strtotime($date_item));
+            $french_day = $french_days[$day_name];
+            if (empty($active_days) || in_array($french_day, $active_days)) {
+                $display_dates[] = $date_item;
+            }
+        }
         
         // Get all time slots for the week
         $all_time_slots = array();
-        foreach ($dates as $date) {
+        foreach ($display_dates as $date) {
             $day_name = date('l', strtotime($date));
             $french_day = $french_days[$day_name];
-            
-            // Skip days that are not active for this sheet
-            if (!empty($active_days) && !in_array($french_day, $active_days)) {
-                continue;
-            }
             
             // Get sheet-specific schedule or fall back to global
             $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
@@ -434,7 +443,7 @@ class Amhorti_Public {
             <thead>
                 <tr>
                     <th class="time-header">Horaires</th>
-                    <?php foreach ($dates as $date): ?>
+                    <?php foreach ($display_dates as $date): ?>
                         <?php 
                         $day_name = date('l', strtotime($date));
                         $french_day = ucfirst($french_days[$day_name]);
@@ -452,14 +461,9 @@ class Amhorti_Public {
                     
                     // Find maximum slots for this time across all days
                     $max_slots = 0;
-                    foreach ($dates as $date) {
+                    foreach ($display_dates as $date) {
                         $day_name = date('l', strtotime($date));
                         $french_day = $french_days[$day_name];
-                        
-                        // Skip inactive days for this sheet
-                        if (!empty($active_days) && !in_array($french_day, $active_days)) {
-                            continue;
-                        }
                         
                         $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
                         
@@ -481,21 +485,10 @@ class Amhorti_Public {
                         </td>
                         <?php endif; ?>
                         
-                        <?php foreach ($dates as $date): ?>
+                        <?php foreach ($display_dates as $date): ?>
                             <?php 
                             $day_name = date('l', strtotime($date));
                             $french_day = $french_days[$day_name];
-                            
-                            // Check if this day is active for this sheet
-                            $day_is_active = empty($active_days) || in_array($french_day, $active_days);
-                            
-                            if (!$day_is_active) {
-                                // Day is not active for this sheet
-                                ?>
-                                <td class="booking-cell disabled inactive-day"></td>
-                                <?php
-                                continue;
-                            }
                             
                             $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
                             
@@ -509,9 +502,10 @@ class Amhorti_Public {
                             }
                             
                             if ($slot_exists) {
-                                // Check if date is within valid range (today to +7 days)
+                                // Check if date is within valid range
                                 $today = date('Y-m-d');
-                                $max_date = date('Y-m-d', strtotime('+7 days', strtotime($today)));
+                                $max_days = (!empty($sheet_config) && !empty($sheet_config->allow_beyond_7_days) && intval($sheet_config->allow_beyond_7_days) === 1) ? 365 : 7;
+                                $max_date = date('Y-m-d', strtotime('+' . $max_days . ' days', strtotime($today)));
                                 $is_valid_date = ($date >= $today && $date <= $max_date);
                                 
                                 $booking_key = $date . '_' . $start_time . '_' . $end_time . '_' . $slot_num;
@@ -578,13 +572,22 @@ class Amhorti_Public {
         $slot_number = intval($_POST['slot_number']);
         $booking_text = sanitize_text_field($_POST['booking_text']);
         
-        // Validate date is not in the past or more than 7 days in the future
+        // Validate date is not in the past or more than N days in the future
         $booking_date = strtotime($date);
         $current_date = strtotime(date('Y-m-d')); // Start of today
-        $max_future = strtotime('+7 days', $current_date);
+        $max_days = 7;
+        $sheet_config = $this->database->get_sheet_config($sheet_id);
+        if ($sheet_config && !empty($sheet_config->allow_beyond_7_days) && intval($sheet_config->allow_beyond_7_days) === 1) {
+            $max_days = 365;
+        }
+        $max_future = strtotime('+' . $max_days . ' days', $current_date);
         
         if ($booking_date < $current_date || $booking_date > $max_future) {
-            wp_send_json_error('Les réservations ne sont possibles que pour les 7 prochains jours');
+            if ($max_days > 7) {
+                wp_send_json_error('Date de réservation hors plage autorisée');
+            } else {
+                wp_send_json_error('Les réservations ne sont possibles que pour les 7 prochains jours');
+            }
             return;
         }
         

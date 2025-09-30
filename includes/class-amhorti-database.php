@@ -49,6 +49,7 @@ class Amhorti_Database {
             is_active tinyint(1) DEFAULT 1,
             sort_order int(11) DEFAULT 0,
             days_config text DEFAULT NULL,
+            allow_beyond_7_days tinyint(1) DEFAULT 0,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id)
         ) $charset_collate;";
@@ -84,6 +85,18 @@ class Amhorti_Database {
         
         // Insert default data
         $this->insert_default_data();
+    }
+
+    /**
+     * Ensure schema is up to date (lightweight migration)
+     */
+    public function ensure_schema() {
+        global $wpdb;
+        // Add allow_beyond_7_days column if missing
+        $col = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_sheets} LIKE %s", 'allow_beyond_7_days'));
+        if (!$col) {
+            $wpdb->query("ALTER TABLE {$this->table_sheets} ADD COLUMN allow_beyond_7_days TINYINT(1) DEFAULT 0");
+        }
     }
     
     /**
