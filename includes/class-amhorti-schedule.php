@@ -48,6 +48,12 @@ class Amhorti_Schedule {
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('amhorti_nonce')
         ));
+
+        // Localize an object for admin AJAX used in frontend portal
+        wp_localize_script('amhorti-public-js', 'amhorti_admin_ajax', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('amhorti_admin_nonce')
+        ));
     }
     
     public function enqueue_admin_scripts($hook) {

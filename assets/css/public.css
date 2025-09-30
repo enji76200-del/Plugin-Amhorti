@@ -10,6 +10,24 @@
     overflow: hidden;
 }
 
+/* Admin portal (frontend) */
+.amhorti-admin-frontend .card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+}
+.amhorti-admin-frontend .wp-list-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.amhorti-admin-frontend .wp-list-table th,
+.amhorti-admin-frontend .wp-list-table td {
+    border: 1px solid #dee2e6;
+    padding: 8px;
+}
+
 /* Tabs */
 .amhorti-tabs {
     display: flex;

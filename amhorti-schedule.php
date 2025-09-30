@@ -32,11 +32,38 @@ function amhorti_schedule_init() {
 }
 add_action('plugins_loaded', 'amhorti_schedule_init');
 
+/**
+ * Ensure custom roles and capabilities for the plugin exist
+ */
+function amhorti_ensure_roles_caps() {
+    // Custom capability for this plugin
+    $cap = 'manage_amhorti';
+
+    // Add role Organisateur if missing
+    if (!get_role('organisateur')) {
+        add_role('organisateur', __('Organisateur', 'amhorti-schedule'), array('read' => true));
+    }
+
+    // Grant capability to Administrator and Organisateur
+    $admin = get_role('administrator');
+    if ($admin && !$admin->has_cap($cap)) {
+        $admin->add_cap($cap);
+    }
+    $orga = get_role('organisateur');
+    if ($orga && !$orga->has_cap($cap)) {
+        $orga->add_cap($cap);
+    }
+}
+add_action('init', 'amhorti_ensure_roles_caps');
+
 // Activation hook
 register_activation_hook(__FILE__, 'amhorti_schedule_activate');
 function amhorti_schedule_activate() {
     $database = new Amhorti_Database();
     $database->create_tables();
+
+    // Ensure roles and capabilities are set on activation
+    amhorti_ensure_roles_caps();
 }
 
 // Deactivation hook

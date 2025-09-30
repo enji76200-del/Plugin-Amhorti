@@ -355,7 +355,7 @@ class Amhorti_Admin {
     public function ajax_save_sheet() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -383,7 +383,7 @@ class Amhorti_Admin {
     public function ajax_save_schedule() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -413,7 +413,7 @@ class Amhorti_Admin {
     public function ajax_delete_sheet() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -439,7 +439,7 @@ class Amhorti_Admin {
     public function ajax_delete_schedule() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -823,7 +823,7 @@ class Amhorti_Admin {
     public function ajax_update_sheet() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -856,7 +856,7 @@ class Amhorti_Admin {
     public function ajax_save_css() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -894,7 +894,7 @@ class Amhorti_Admin {
     public function ajax_get_css() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
@@ -912,7 +912,7 @@ class Amhorti_Admin {
     public function ajax_add_sheet_schedule() {
         check_ajax_referer('amhorti_admin_nonce', 'nonce');
         
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_amhorti')) {
             wp_die('Unauthorized');
         }
         
