@@ -16,6 +16,8 @@ Un plugin WordPress qui crée un tableau de planification similaire à Excel ave
 - **🆕 Horaires spécifiques par feuille** : Chaque feuille peut avoir ses propres horaires
 - **🆕 Éditeur CSS intégré** : Interface pour personnaliser l'apparence avec prévisualisation en temps réel
 - **🆕 Interface en français** : Navigation et administration entièrement traduites
+- **✨ Contrôle de concurrence optimiste** : Prévention des pertes de données lors d'éditions simultanées
+- **✨ Suivi des propriétaires** : Traçabilité des créateurs de réservations
 
 ## Installation
 
@@ -116,9 +118,20 @@ Pour afficher une feuille spécifique :
 
 Le plugin crée 4 tables :
 - `wp_amhorti_bookings` : Stockage des réservations
+  - **✨ v1.1.0** : Ajout de `user_id` (suivi du propriétaire) et `version` (contrôle de concurrence)
 - `wp_amhorti_sheets` : Configuration des feuilles (avec config des jours actifs)
 - `wp_amhorti_schedules` : Configuration des horaires (globaux et par feuille)
 - `wp_amhorti_css_settings` : **🆕** Stockage du CSS personnalisé
+
+#### Colonnes de la table bookings
+- `id` : Identifiant unique
+- `sheet_id` : Référence à la feuille
+- `date`, `time_start`, `time_end`, `slot_number` : Définition du créneau
+- `booking_text` : Texte de la réservation
+- `user_ip` : Adresse IP de l'utilisateur
+- **✨ `user_id`** : ID de l'utilisateur WordPress (NULL pour anonymes)
+- **✨ `version`** : Numéro de version pour le contrôle de concurrence
+- `created_at`, `updated_at` : Timestamps de création et modification
 
 ### Technologies utilisées
 
@@ -140,6 +153,25 @@ Le plugin crée 4 tables :
 - Validation côté serveur et client
 - Protection CSRF avec nonces WordPress
 - Sanitisation de toutes les entrées utilisateur
+- **✨ Contrôle de concurrence optimiste** : Détection et gestion des éditions simultanées
+- **✨ Suivi des modifications** : Version tracking pour chaque réservation
+- **✨ Contrôle d'accès** : Seul le propriétaire ou un administrateur peut supprimer une réservation
+
+### Contrôle de Concurrence (v1.1.0)
+
+Le plugin implémente un système de contrôle de concurrence optimiste pour éviter la perte de données :
+
+#### Comment ça fonctionne ?
+1. Chaque réservation a un numéro de version qui s'incrémente à chaque modification
+2. Lors de la sauvegarde, le système vérifie que la version est à jour
+3. Si un conflit est détecté (modification simultanée), l'utilisateur en est informé
+4. L'utilisateur peut recharger le tableau pour voir les dernières modifications
+
+#### Gestion des conflits
+- **Indication visuelle** : Les cellules en conflit s'affichent en rouge
+- **Message clair** : "La réservation a été modifiée par un autre utilisateur"
+- **Rechargement facile** : Option de recharger le tableau pour voir les dernières modifications
+- **Pas de perte de données** : Aucune modification n'est écrasée silencieusement
 
 ## Exemples d'utilisation
 
