@@ -13,6 +13,8 @@ class Amhorti_Public {
     public function init() {
         add_action('wp_ajax_amhorti_save_booking', array($this, 'ajax_save_booking'));
         add_action('wp_ajax_nopriv_amhorti_save_booking', array($this, 'ajax_save_booking'));
+        add_action('wp_ajax_amhorti_delete_booking', array($this, 'ajax_delete_booking'));
+        add_action('wp_ajax_nopriv_amhorti_delete_booking', array($this, 'ajax_delete_booking'));
         add_action('wp_ajax_amhorti_get_table_data', array($this, 'ajax_get_table_data'));
         add_action('wp_ajax_nopriv_amhorti_get_table_data', array($this, 'ajax_get_table_data'));
         add_action('wp_head', array($this, 'inject_custom_css'));
@@ -495,7 +497,11 @@ class Amhorti_Public {
             $date_bookings = $this->database->get_bookings($sheet_id, $date);
             foreach ($date_bookings as $booking) {
                 $key = $date . '_' . $booking->time_start . '_' . $booking->time_end . '_' . $booking->slot_number;
-                $bookings[$key] = $booking->booking_text;
+                $bookings[$key] = array(
+                    'text' => $booking->booking_text,
+                    'version' => isset($booking->version) ? $booking->version : 1,
+                    'id' => $booking->id
+                );
             }
         }
         
@@ -578,7 +584,10 @@ class Amhorti_Public {
                                 $is_valid_date = ($date >= $today && $date <= $max_date);
                                 
                                 $booking_key = $date . '_' . $start_time . '_' . $end_time . '_' . $slot_num;
-                                $booking_text = isset($bookings[$booking_key]) ? $bookings[$booking_key] : '';
+                                $booking_data = isset($bookings[$booking_key]) ? $bookings[$booking_key] : null;
+                                $booking_text = $booking_data ? $booking_data['text'] : '';
+                                $booking_version = $booking_data ? $booking_data['version'] : 0;
+                                $booking_id = $booking_data ? $booking_data['id'] : 0;
                                 
                                 $cell_class = 'booking-cell';
                                 $contenteditable = 'false';
@@ -595,6 +604,8 @@ class Amhorti_Public {
                                     data-time-start="<?php echo esc_attr($start_time); ?>"
                                     data-time-end="<?php echo esc_attr($end_time); ?>"
                                     data-slot="<?php echo esc_attr($slot_num); ?>"
+                                    data-version="<?php echo esc_attr($booking_version); ?>"
+                                    data-booking-id="<?php echo esc_attr($booking_id); ?>"
                                     contenteditable="<?php echo $contenteditable; ?>"
                                     spellcheck="false"><?php echo esc_html($booking_text); ?></td>
                                 <?php
@@ -640,6 +651,7 @@ class Amhorti_Public {
         $time_end = sanitize_text_field($_POST['time_end']);
         $slot_number = intval($_POST['slot_number']);
         $booking_text = sanitize_text_field($_POST['booking_text']);
+        $expected_version = isset($_POST['version']) ? intval($_POST['version']) : null;
         
         // Validate date is not in the past or more than N days in the future
         $booking_date = strtotime($date);
@@ -664,12 +676,42 @@ class Amhorti_Public {
             return;
         }
         
-        $result = $this->database->save_booking($sheet_id, $date, $time_start, $time_end, $slot_number, $booking_text);
+        $result = $this->database->save_booking($sheet_id, $date, $time_start, $time_end, $slot_number, $booking_text, $expected_version);
         
-        if ($result !== false) {
+        if (isset($result['success']) && $result['success']) {
+            wp_send_json_success(array(
+                'version' => $result['version'],
+                'id' => $result['id']
+            ));
+        } elseif (isset($result['error']) && $result['error'] === 'conflict') {
+            wp_send_json_error(array(
+                'message' => $result['message'],
+                'conflict' => true
+            ));
+        } else {
+            wp_send_json_error(isset($result['message']) ? $result['message'] : 'Failed to save booking');
+        }
+    }
+    
+    /**
+     * AJAX handler for deleting bookings
+     */
+    public function ajax_delete_booking() {
+        check_ajax_referer('amhorti_nonce', 'nonce');
+        
+        $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+        
+        if (!$booking_id) {
+            wp_send_json_error('ID de réservation invalide');
+            return;
+        }
+        
+        $result = $this->database->delete_booking($booking_id, true);
+        
+        if (isset($result['success']) && $result['success']) {
             wp_send_json_success();
         } else {
-            wp_send_json_error('Failed to save booking');
+            wp_send_json_error(isset($result['message']) ? $result['message'] : 'Failed to delete booking');
         }
     }
     

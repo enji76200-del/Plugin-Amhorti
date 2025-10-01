@@ -35,11 +35,14 @@ class Amhorti_Database {
             slot_number int(3) NOT NULL,
             booking_text varchar(255) DEFAULT '',
             user_ip varchar(45) DEFAULT '',
+            user_id bigint(20) DEFAULT NULL,
+            version int(11) DEFAULT 1,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY idx_sheet_date (sheet_id, date),
-            KEY idx_created_at (created_at)
+            KEY idx_created_at (created_at),
+            KEY idx_user_id (user_id)
         ) $charset_collate;";
         
         // Sheets table
@@ -102,6 +105,17 @@ class Amhorti_Database {
         $col2 = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_sheets} LIKE %s", 'max_booking_days'));
         if (!$col2) {
             $wpdb->query("ALTER TABLE {$this->table_sheets} ADD COLUMN max_booking_days INT(11) DEFAULT 7");
+        }
+        // Add user_id column to bookings if missing
+        $col3 = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_bookings} LIKE %s", 'user_id'));
+        if (!$col3) {
+            $wpdb->query("ALTER TABLE {$this->table_bookings} ADD COLUMN user_id BIGINT(20) DEFAULT NULL");
+            $wpdb->query("ALTER TABLE {$this->table_bookings} ADD KEY idx_user_id (user_id)");
+        }
+        // Add version column to bookings if missing
+        $col4 = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_bookings} LIKE %s", 'version'));
+        if (!$col4) {
+            $wpdb->query("ALTER TABLE {$this->table_bookings} ADD COLUMN version INT(11) DEFAULT 1");
         }
     }
     
@@ -242,12 +256,13 @@ class Amhorti_Database {
     }
     
     /**
-     * Save booking
+     * Save booking with optimistic concurrency control
      */
-    public function save_booking($sheet_id, $date, $time_start, $time_end, $slot_number, $booking_text) {
+    public function save_booking($sheet_id, $date, $time_start, $time_end, $slot_number, $booking_text, $expected_version = null) {
         global $wpdb;
         
         $user_ip = $_SERVER['REMOTE_ADDR'];
+        $user_id = is_user_logged_in() ? get_current_user_id() : null;
         
         // Check if booking already exists
         $existing = $wpdb->get_row(
@@ -259,15 +274,31 @@ class Amhorti_Database {
         );
         
         if ($existing) {
+            // Check version for optimistic concurrency control
+            if ($expected_version !== null && intval($existing->version) !== intval($expected_version)) {
+                return array('error' => 'conflict', 'message' => 'La réservation a été modifiée par un autre utilisateur');
+            }
+            
             // Update existing booking
-            return $wpdb->update(
+            $new_version = intval($existing->version) + 1;
+            $result = $wpdb->update(
                 $this->table_bookings,
-                array('booking_text' => $booking_text, 'user_ip' => $user_ip),
+                array(
+                    'booking_text' => $booking_text, 
+                    'user_ip' => $user_ip,
+                    'user_id' => $user_id,
+                    'version' => $new_version
+                ),
                 array('id' => $existing->id)
             );
+            
+            if ($result !== false) {
+                return array('success' => true, 'version' => $new_version, 'id' => $existing->id);
+            }
+            return array('error' => 'database', 'message' => 'Erreur lors de la mise à jour');
         } else {
             // Insert new booking
-            return $wpdb->insert(
+            $result = $wpdb->insert(
                 $this->table_bookings,
                 array(
                     'sheet_id' => $sheet_id,
@@ -276,10 +307,64 @@ class Amhorti_Database {
                     'time_end' => $time_end,
                     'slot_number' => $slot_number,
                     'booking_text' => $booking_text,
-                    'user_ip' => $user_ip
+                    'user_ip' => $user_ip,
+                    'user_id' => $user_id,
+                    'version' => 1
                 )
             );
+            
+            if ($result !== false) {
+                return array('success' => true, 'version' => 1, 'id' => $wpdb->insert_id);
+            }
+            return array('error' => 'database', 'message' => 'Erreur lors de la création');
         }
+    }
+    
+    /**
+     * Get booking by ID
+     */
+    public function get_booking_by_id($booking_id) {
+        global $wpdb;
+        return $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$this->table_bookings} WHERE id = %d",
+                $booking_id
+            )
+        );
+    }
+    
+    /**
+     * Delete booking with ownership check
+     */
+    public function delete_booking($booking_id, $check_ownership = true) {
+        global $wpdb;
+        
+        if ($check_ownership) {
+            $booking = $this->get_booking_by_id($booking_id);
+            if (!$booking) {
+                return array('error' => 'not_found', 'message' => 'Réservation introuvable');
+            }
+            
+            // Check if user has permission to delete
+            $current_user_id = is_user_logged_in() ? get_current_user_id() : null;
+            $is_admin = current_user_can('manage_amhorti');
+            
+            // Allow deletion if: user is admin OR user is the owner
+            if (!$is_admin && $booking->user_id != $current_user_id) {
+                return array('error' => 'permission_denied', 'message' => 'Vous n\'avez pas la permission de supprimer cette réservation');
+            }
+        }
+        
+        $result = $wpdb->delete(
+            $this->table_bookings,
+            array('id' => $booking_id),
+            array('%d')
+        );
+        
+        if ($result !== false) {
+            return array('success' => true);
+        }
+        return array('error' => 'database', 'message' => 'Erreur lors de la suppression');
     }
     
     /**
