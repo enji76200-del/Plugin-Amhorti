@@ -394,10 +394,12 @@
     gap: 2px;
     opacity: 0;
     transition: opacity 0.2s ease;
+    pointer-events: none;
 }
 
 .booking-cell.editable:hover .amhorti-cell-actions {
     opacity: 1;
+    pointer-events: auto;
 }
 
 .amhorti-icon {
@@ -414,6 +416,10 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 .amhorti-icon:hover {

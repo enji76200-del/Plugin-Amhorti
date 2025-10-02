@@ -644,16 +644,7 @@ class Amhorti_Public {
                                     data-booking-id="<?php echo esc_attr($booking_id); ?>"
                                     data-booking-user-id="<?php echo esc_attr($booking_user_id); ?>"
                                     contenteditable="<?php echo $contenteditable; ?>"
-                                    spellcheck="false"><?php echo esc_html($booking_text); ?><?php if ($is_valid_date && $current_user_id): ?>
-                                    <span class="amhorti-cell-actions">
-                                        <?php if ($show_plus): ?>
-                                        <button class="amhorti-icon amhorti-plus" data-action="signup" title="S'inscrire">+</button>
-                                        <?php endif; ?>
-                                        <?php if ($show_minus): ?>
-                                        <button class="amhorti-icon amhorti-minus" data-action="delete" title="Se désinscrire">−</button>
-                                        <?php endif; ?>
-                                    </span>
-                                    <?php endif; ?></td>
+                                    spellcheck="false"><?php echo esc_html($booking_text); ?><?php if ($is_valid_date && $current_user_id): ?><span class="amhorti-cell-actions"><?php if ($show_plus): ?><button class="amhorti-icon amhorti-plus" data-action="signup" title="S'inscrire">+</button><?php endif; ?><?php if ($show_minus): ?><button class="amhorti-icon amhorti-minus" data-action="delete" title="Se désinscrire">−</button><?php endif; ?></span><?php endif; ?></td>
                                 <?php
                             } else {
                                 ?>
