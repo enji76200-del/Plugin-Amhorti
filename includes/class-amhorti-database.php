@@ -120,6 +120,15 @@ class Amhorti_Database {
         
         // Migrate global schedules to per-sheet schedules (one-time migration)
         $this->migrate_global_schedules_to_sheets();
+
+        // Backfill: ensure each active sheet has at least one schedule; if none, create defaults
+        $sheets = $wpdb->get_results("SELECT id FROM {$this->table_sheets} WHERE is_active = 1");
+        foreach ($sheets as $s) {
+            $cnt = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->table_schedules} WHERE sheet_id = %d AND is_active = 1", $s->id));
+            if (intval($cnt) === 0) {
+                $this->create_default_schedules_for_sheet($s->id);
+            }
+        }
     }
     
     /**
@@ -182,7 +191,6 @@ class Amhorti_Database {
         
         // Insert default sheets if they don't exist
         $sheet_count = $wpdb->get_var("SELECT COUNT(*) FROM {$this->table_sheets}");
-        $sheet_ids = array();
         if ($sheet_count == 0) {
             $default_sheets = array(
                 array('name' => 'Feuille 1', 'sort_order' => 1),
@@ -193,91 +201,10 @@ class Amhorti_Database {
             
             foreach ($default_sheets as $sheet) {
                 $wpdb->insert($this->table_sheets, $sheet);
-                $sheet_ids[] = $wpdb->insert_id;
-            }
-        } else {
-            // Get existing sheet IDs
-            $sheets = $wpdb->get_results("SELECT id FROM {$this->table_sheets} WHERE is_active = 1");
-            foreach ($sheets as $sheet) {
-                $sheet_ids[] = $sheet->id;
-            }
-        }
-        
-        // Insert default schedules for each sheet if they don't exist
-        $schedule_count = $wpdb->get_var("SELECT COUNT(*) FROM {$this->table_schedules}");
-        if ($schedule_count == 0 && !empty($sheet_ids)) {
-            $default_schedule_template = array(
-                // Lundi
-                array('day_of_week' => 'lundi', 'time_start' => '06:00:00', 'time_end' => '07:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'lundi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
-                array('day_of_week' => 'lundi', 'time_start' => '08:30:00', 'time_end' => '10:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '10:00:00', 'time_end' => '11:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '11:30:00', 'time_end' => '13:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'lundi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Mardi
-                array('day_of_week' => 'mardi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
-                array('day_of_week' => 'mardi', 'time_start' => '08:30:00', 'time_end' => '10:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '10:00:00', 'time_end' => '11:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '11:30:00', 'time_end' => '13:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'mardi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Mercredi
-                array('day_of_week' => 'mercredi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
-                array('day_of_week' => 'mercredi', 'time_start' => '08:30:00', 'time_end' => '10:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '10:00:00', 'time_end' => '11:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '11:30:00', 'time_end' => '13:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'mercredi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Jeudi
-                array('day_of_week' => 'jeudi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
-                array('day_of_week' => 'jeudi', 'time_start' => '08:30:00', 'time_end' => '10:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '10:00:00', 'time_end' => '11:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '11:30:00', 'time_end' => '13:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'jeudi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Vendredi
-                array('day_of_week' => 'vendredi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
-                array('day_of_week' => 'vendredi', 'time_start' => '08:30:00', 'time_end' => '10:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '10:00:00', 'time_end' => '11:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '11:30:00', 'time_end' => '13:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'vendredi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Samedi
-                array('day_of_week' => 'samedi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'samedi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'samedi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'samedi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'samedi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Dimanche - no slots by default
-            );
-            
-            // Create schedules for each sheet
-            foreach ($sheet_ids as $sheet_id) {
-                foreach ($default_schedule_template as $schedule) {
-                    $schedule['sheet_id'] = $sheet_id;
-                    $wpdb->insert($this->table_schedules, $schedule);
+                // Create per-sheet default schedules on initial install
+                $new_id = $wpdb->insert_id;
+                if ($new_id) {
+                    $this->create_default_schedules_for_sheet($new_id);
                 }
             }
         }
@@ -475,6 +402,100 @@ class Amhorti_Database {
             )
         );
     }
+
+    /**
+     * Create default schedules for a given sheet.
+     * This mirrors the initial defaults but attaches them to the sheet_id.
+     */
+    public function create_default_schedules_for_sheet($sheet_id) {
+        global $wpdb;
+        $defaults = array(
+            // Lundi
+            array('lundi', '06:00:00', '07:00:00', 3),
+            array('lundi', '07:30:00', '08:30:00', 3),
+            array('lundi', '08:30:00', '10:00:00', 2),
+            array('lundi', '10:00:00', '11:30:00', 2),
+            array('lundi', '11:30:00', '13:00:00', 2),
+            array('lundi', '13:00:00', '14:30:00', 2),
+            array('lundi', '14:30:00', '16:00:00', 2),
+            array('lundi', '16:00:00', '17:30:00', 2),
+            array('lundi', '17:30:00', '19:00:00', 3),
+            array('lundi', '19:00:00', '20:00:00', 3),
+            // Mardi
+            array('mardi', '07:30:00', '08:30:00', 3),
+            array('mardi', '08:30:00', '10:00:00', 2),
+            array('mardi', '10:00:00', '11:30:00', 2),
+            array('mardi', '11:30:00', '13:00:00', 2),
+            array('mardi', '13:00:00', '14:30:00', 2),
+            array('mardi', '14:30:00', '16:00:00', 2),
+            array('mardi', '16:00:00', '17:30:00', 2),
+            array('mardi', '17:30:00', '19:00:00', 3),
+            array('mardi', '19:00:00', '20:00:00', 3),
+            // Mercredi
+            array('mercredi', '07:30:00', '08:30:00', 3),
+            array('mercredi', '08:30:00', '10:00:00', 2),
+            array('mercredi', '10:00:00', '11:30:00', 2),
+            array('mercredi', '11:30:00', '13:00:00', 2),
+            array('mercredi', '13:00:00', '14:30:00', 2),
+            array('mercredi', '14:30:00', '16:00:00', 2),
+            array('mercredi', '16:00:00', '17:30:00', 2),
+            array('mercredi', '17:30:00', '19:00:00', 3),
+            array('mercredi', '19:00:00', '20:00:00', 3),
+            // Jeudi
+            array('jeudi', '07:30:00', '08:30:00', 3),
+            array('jeudi', '08:30:00', '10:00:00', 2),
+            array('jeudi', '10:00:00', '11:30:00', 2),
+            array('jeudi', '11:30:00', '13:00:00', 2),
+            array('jeudi', '13:00:00', '14:30:00', 2),
+            array('jeudi', '14:30:00', '16:00:00', 2),
+            array('jeudi', '16:00:00', '17:30:00', 2),
+            array('jeudi', '17:30:00', '19:00:00', 3),
+            array('jeudi', '19:00:00', '20:00:00', 3),
+            // Vendredi
+            array('vendredi', '07:30:00', '08:30:00', 3),
+            array('vendredi', '08:30:00', '10:00:00', 2),
+            array('vendredi', '10:00:00', '11:30:00', 2),
+            array('vendredi', '11:30:00', '13:00:00', 2),
+            array('vendredi', '13:00:00', '14:30:00', 2),
+            array('vendredi', '14:30:00', '16:00:00', 2),
+            array('vendredi', '16:00:00', '17:30:00', 2),
+            array('vendredi', '17:30:00', '19:00:00', 3),
+            array('vendredi', '19:00:00', '20:00:00', 3),
+            // Samedi
+            array('samedi', '13:00:00', '14:30:00', 2),
+            array('samedi', '14:30:00', '16:00:00', 2),
+            array('samedi', '16:00:00', '17:30:00', 2),
+            array('samedi', '17:30:00', '19:00:00', 3),
+            array('samedi', '19:00:00', '20:00:00', 3),
+            // Dimanche: none by default
+        );
+        foreach ($defaults as $d) {
+            $wpdb->insert($this->table_schedules, array(
+                'sheet_id' => intval($sheet_id),
+                'day_of_week' => $d[0],
+                'time_start' => $d[1],
+                'time_end' => $d[2],
+                'slot_count' => $d[3],
+                'is_active' => 1
+            ));
+        }
+    }
+
+    /**
+     * Update an existing schedule row by id
+     */
+    public function update_schedule($schedule_id, $fields) {
+        global $wpdb;
+        $allowed = array('day_of_week','time_start','time_end','slot_count','is_active');
+        $data = array();
+        foreach ($allowed as $k) {
+            if (isset($fields[$k])) {
+                $data[$k] = $fields[$k];
+            }
+        }
+        if (empty($data)) return false;
+        return $wpdb->update($this->table_schedules, $data, array('id' => intval($schedule_id)));
+    }
     
     /**
      * Get custom CSS
@@ -504,25 +525,5 @@ class Amhorti_Database {
         );
     }
     
-    /**
-     * Update schedule by ID
-     */
-    public function update_schedule($schedule_id, $day_of_week, $time_start, $time_end, $slot_count) {
-        global $wpdb;
-        
-        $result = $wpdb->update(
-            $this->table_schedules,
-            array(
-                'day_of_week' => $day_of_week,
-                'time_start' => $time_start,
-                'time_end' => $time_end,
-                'slot_count' => $slot_count
-            ),
-            array('id' => $schedule_id),
-            array('%s', '%s', '%s', '%d'),
-            array('%d')
-        );
-        
-        return $result !== false;
-    }
+    // Note: Single update_schedule method retained (fields-based) to avoid duplicate signatures
 }

@@ -87,7 +87,7 @@ class Amhorti_Public {
         $tabs = array(
             'overview' => __('Accueil', 'amhorti-schedule'),
             'sheets' => __('Gérer les Feuilles', 'amhorti-schedule'),
-            'schedules' => __('Gérer les Horaires', 'amhorti-schedule'),
+            // Onglet "Horaires" global retiré: gestion par feuille dans Avancé
             'advanced' => __('Configuration Avancée', 'amhorti-schedule'),
             'css' => __('Éditeur CSS', 'amhorti-schedule'),
         );
@@ -112,9 +112,7 @@ class Amhorti_Public {
                 <div class="amhorti-panel" data-panel="sheets" style="display: <?php echo $active==='sheets'?'block':'none'; ?>;">
                     <?php $this->render_admin_sheets_panel(); ?>
                 </div>
-                <div class="amhorti-panel" data-panel="schedules" style="display: <?php echo $active==='schedules'?'block':'none'; ?>;">
-                    <?php $this->render_admin_schedules_panel(); ?>
-                </div>
+                
                 <div class="amhorti-panel" data-panel="advanced" style="display: <?php echo $active==='advanced'?'block':'none'; ?>;">
                     <?php $this->render_admin_advanced_panel(); ?>
                 </div>
@@ -208,68 +206,7 @@ class Amhorti_Public {
         <?php
     }
 
-    private function render_admin_schedules_panel() {
-        $days = array('lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche');
-        ?>
-        <div class="card">
-            <h2>Ajouter un Nouveau Créneau</h2>
-            <form id="amhorti-add-schedule-form-front">
-                <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
-                <p><label>Jour
-                    <select id="day_of_week_front"><?php foreach($days as $d){ echo '<option value="'.esc_attr($d).'">'.ucfirst($d).'</option>'; } ?></select>
-                </label></p>
-                <p><label>Heure de Début <input type="time" id="time_start_front" required></label></p>
-                <p><label>Heure de Fin <input type="time" id="time_end_front" required></label></p>
-                <p><label>Créneaux <input type="number" id="slot_count_front" value="2" min="1" max="10" required></label></p>
-                <p><button type="submit" class="button button-primary">Ajouter</button></p>
-            </form>
-        </div>
-        <div class="card">
-            <h2>Créneaux par jour</h2>
-            <?php foreach($days as $day): $schedules = $this->database->get_schedule_for_day($day); ?>
-            <h3><?php echo ucfirst($day); ?></h3>
-            <?php if(!empty($schedules)): ?>
-            <table class="wp-list-table widefat fixed striped"><thead><tr><th>Début</th><th>Fin</th><th>Créneaux</th><th>Statut</th><th>Actions</th></tr></thead><tbody>
-                <?php foreach($schedules as $s): ?>
-                <tr>
-                    <td><?php echo esc_html($s->time_start); ?></td>
-                    <td><?php echo esc_html($s->time_end); ?></td>
-                    <td><?php echo esc_html($s->slot_count); ?></td>
-                    <td><?php echo $s->is_active ? 'Actif' : 'Inactif'; ?></td>
-                    <td><button class="button delete-schedule-front" data-id="<?php echo esc_attr($s->id); ?>">Supprimer</button></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody></table>
-            <?php else: ?><p>Aucun créneau.</p><?php endif; ?>
-            <?php endforeach; ?>
-        </div>
-        <script>
-        (function($){
-            $(document).on('submit', '#amhorti-add-schedule-form-front', function(e){
-                e.preventDefault();
-                $.post(amhorti_admin_ajax.ajax_url, {
-                    action: 'amhorti_admin_save_schedule',
-                    day_of_week: $('#day_of_week_front').val(),
-                    time_start: $('#time_start_front').val(),
-                    time_end: $('#time_end_front').val(),
-                    slot_count: $('#slot_count_front').val(),
-                    nonce: $('.amhorti-admin-frontend').data('nonce')
-                }, function(resp){
-                    if(resp.success){ location.reload(); } else { alert('Erreur: '+resp.data); }
-                });
-            });
-            $(document).on('click', '.delete-schedule-front', function(){
-                if(!confirm('Supprimer ce créneau ?')) return;
-                $.post(amhorti_admin_ajax.ajax_url, {
-                    action: 'amhorti_admin_delete_schedule',
-                    schedule_id: $(this).data('id'),
-                    nonce: $('.amhorti-admin-frontend').data('nonce')
-                }, function(resp){ if(resp.success){ location.reload(); } else { alert('Erreur: '+resp.data); } });
-            });
-        })(jQuery);
-        </script>
-        <?php
-    }
+    // Onglet Horaires supprimé (plus d'horaires globaux); tout se fait par feuille dans Avancé.
 
     private function render_admin_advanced_panel() {
         $sheets = $this->database->get_sheets();
@@ -316,10 +253,18 @@ class Amhorti_Public {
                     foreach($sheet_schedules as $sch){
                         echo '<tr>';
                         echo '<td>'.esc_html(ucfirst($sch->day_of_week)).'</td>';
+<<<<<<< HEAD
                         echo '<td>'.esc_html($sch->time_start).'</td>';
                         echo '<td>'.esc_html($sch->time_end).'</td>';
                         echo '<td>'.esc_html($sch->slot_count).'</td>';
                         echo '<td><button class="button edit-sheet-schedule-front" data-id="'.esc_attr($sch->id).'" data-day="'.esc_attr($sch->day_of_week).'" data-start="'.esc_attr($sch->time_start).'" data-end="'.esc_attr($sch->time_end).'" data-slots="'.esc_attr($sch->slot_count).'">Modifier</button> <button class="button delete-sheet-schedule-front" data-id="'.esc_attr($sch->id).'">Supprimer</button></td>';
+=======
+                        echo '<td><input type="time" class="edit-time-start-front" value="'.esc_attr($sch->time_start).'" data-id="'.esc_attr($sch->id).'"/></td>';
+                        echo '<td><input type="time" class="edit-time-end-front" value="'.esc_attr($sch->time_end).'" data-id="'.esc_attr($sch->id).'"/></td>';
+                        echo '<td><input type="number" class="edit-slot-count-front" value="'.esc_attr($sch->slot_count).'" min="1" max="10" data-id="'.esc_attr($sch->id).'"/></td>';
+                        echo '<td><button class="button update-sheet-schedule-front" data-id="'.esc_attr($sch->id).'">Modifier</button> ';
+                        echo '<button class="button delete-sheet-schedule-front" data-id="'.esc_attr($sch->id).'">Supprimer</button></td>';
+>>>>>>> a5abe67 (feat: per-sheet-only schedules + default schedules on sheet creation; remove global fallback and add edit buttons in admin/frontend; backfill defaults for existing sheets)
                         echo '</tr>';
                     }
                     echo '</tbody></table>';
@@ -371,6 +316,7 @@ class Amhorti_Public {
                     nonce: $('.amhorti-admin-frontend').data('nonce')
                 }, function(resp){ if(resp.success){ location.reload(); } else { alert('Erreur: '+resp.data); } });
             });
+<<<<<<< HEAD
             
             // Edit sheet-specific schedule
             $(document).on('click', '.edit-sheet-schedule-front', function(){
@@ -409,6 +355,24 @@ class Amhorti_Public {
                         alert('Erreur: '+resp.data); 
                     } 
                 });
+=======
+
+            // Update sheet-specific schedule
+            $(document).on('click', '.update-sheet-schedule-front', function(){
+                var id = $(this).data('id');
+                var row = $(this).closest('tr');
+                var ts = row.find('.edit-time-start-front[data-id="'+id+'"]').val();
+                var te = row.find('.edit-time-end-front[data-id="'+id+'"]').val();
+                var sc = row.find('.edit-slot-count-front[data-id="'+id+'"]').val();
+                $.post(amhorti_admin_ajax.ajax_url, {
+                    action: 'amhorti_admin_update_schedule',
+                    schedule_id: id,
+                    time_start: ts,
+                    time_end: te,
+                    slot_count: sc,
+                    nonce: $('.amhorti-admin-frontend').data('nonce')
+                }, function(resp){ if(resp.success){ alert('Horaire mis à jour'); } else { alert('Erreur: '+resp.data); } });
+>>>>>>> a5abe67 (feat: per-sheet-only schedules + default schedules on sheet creation; remove global fallback and add edit buttons in admin/frontend; backfill defaults for existing sheets)
             });
         })(jQuery);
         </script>
