@@ -22,6 +22,7 @@ class Amhorti_Admin {
         add_action('wp_ajax_amhorti_admin_add_sheet_schedule', array($this, 'ajax_add_sheet_schedule'));
         add_action('wp_ajax_amhorti_admin_update_schedule', array($this, 'ajax_update_schedule'));
     add_action('wp_ajax_amhorti_admin_bulk_update_time_range', array($this, 'ajax_bulk_update_time_range'));
+    add_action('wp_ajax_amhorti_admin_bulk_delete_schedules', array($this, 'ajax_bulk_delete_schedules'));
     }
     
     /**
@@ -666,6 +667,23 @@ class Amhorti_Admin {
                     }
                 });
             });
+
+            // Bulk delete schedules
+            $(document).on('click', '.bulk-delete-schedules', function(){
+                if(!confirm('Supprimer les horaires sélectionnés ?')) return;
+                var container = $(this).closest('.card');
+                var ids = [];
+                container.find('.schedule-checkbox:checked').each(function(){ ids.push($(this).val()); });
+                if(ids.length === 0){ alert('Aucun horaire sélectionné'); return; }
+                $.post(ajaxurl, {
+                    action: 'amhorti_admin_bulk_delete_schedules',
+                    schedule_ids: ids,
+                    nonce: $('#amhorti_admin_nonce').val()
+                }, function(resp){
+                    if(resp.success){ location.reload(); }
+                    else { alert('Erreur: '+resp.data); }
+                });
+            });
         });
         </script>
         <?php
@@ -850,11 +868,15 @@ class Amhorti_Admin {
             echo '<p>Aucun horaire spécifique configuré pour cette feuille.</p>';
             return;
         }
-        
+
         ?>
+        <div class="amhorti-sheet-schedules-controls" style="margin-bottom:8px;">
+            <button type="button" class="button bulk-delete-schedules" data-sheet-id="<?php echo esc_attr($sheet_id); ?>">Supprimer la sélection</button>
+        </div>
         <table class="wp-list-table widefat fixed striped">
             <thead>
                 <tr>
+                    <th style="width:36px;"><input type="checkbox" class="select-all-schedules" /></th>
                     <th>Jour</th>
                     <th>Heure de Début</th>
                     <th>Heure de Fin</th>
@@ -865,17 +887,28 @@ class Amhorti_Admin {
             <tbody>
                 <?php foreach ($schedules as $schedule): ?>
                 <tr>
+                    <td><input type="checkbox" class="schedule-checkbox" value="<?php echo esc_attr($schedule->id); ?>" /></td>
                     <td><?php echo esc_html(ucfirst($schedule->day_of_week)); ?></td>
                     <td><?php echo esc_html($schedule->time_start); ?></td>
                     <td><?php echo esc_html($schedule->time_end); ?></td>
                     <td><?php echo esc_html($schedule->slot_count); ?></td>
                     <td>
+                        <button class="button edit-schedule" data-id="<?php echo esc_attr($schedule->id); ?>" data-day="<?php echo esc_attr($schedule->day_of_week); ?>" data-start="<?php echo esc_attr($schedule->time_start); ?>" data-end="<?php echo esc_attr($schedule->time_end); ?>" data-slots="<?php echo esc_attr($schedule->slot_count); ?>">Modifier</button>
                         <button class="button button-link-delete delete-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Supprimer</button>
                     </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
+        <script>
+        (function($){
+            // Select all
+            $('.select-all-schedules').on('change', function(){
+                var checked = $(this).is(':checked');
+                $(this).closest('table').find('.schedule-checkbox').prop('checked', checked);
+            });
+        })(jQuery);
+        </script>
         <?php
     }
     
@@ -1030,6 +1063,27 @@ class Amhorti_Admin {
         } else {
             wp_send_json_error('Échec de la mise à jour du créneau');
         }
+    }
+
+    /**
+     * Bulk delete selected schedules (soft delete: set is_active = 0)
+     */
+    public function ajax_bulk_delete_schedules() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        if (!current_user_can('manage_amhorti')) { wp_die('Unauthorized'); }
+        if (!isset($_POST['schedule_ids']) || !is_array($_POST['schedule_ids'])) {
+            wp_send_json_error('Paramètres invalides');
+        }
+        global $wpdb;
+        $table_schedules = $wpdb->prefix . 'amhorti_schedules';
+        $ids = array_map('intval', $_POST['schedule_ids']);
+        if (empty($ids)) { wp_send_json_error('Aucun ID'); }
+        $in = implode(',', array_fill(0, count($ids), '%d'));
+        // Build query safely via prepare
+        $sql = $wpdb->prepare("UPDATE {$table_schedules} SET is_active = 0 WHERE id IN ($in)", $ids);
+        $result = $wpdb->query($sql);
+        if ($result !== false) { wp_send_json_success(array('updated' => intval($result))); }
+        else { wp_send_json_error('Échec suppression multiple'); }
     }
 
     /**
