@@ -253,18 +253,11 @@ class Amhorti_Public {
                     foreach($sheet_schedules as $sch){
                         echo '<tr>';
                         echo '<td>'.esc_html(ucfirst($sch->day_of_week)).'</td>';
-<<<<<<< HEAD
-                        echo '<td>'.esc_html($sch->time_start).'</td>';
-                        echo '<td>'.esc_html($sch->time_end).'</td>';
-                        echo '<td>'.esc_html($sch->slot_count).'</td>';
-                        echo '<td><button class="button edit-sheet-schedule-front" data-id="'.esc_attr($sch->id).'" data-day="'.esc_attr($sch->day_of_week).'" data-start="'.esc_attr($sch->time_start).'" data-end="'.esc_attr($sch->time_end).'" data-slots="'.esc_attr($sch->slot_count).'">Modifier</button> <button class="button delete-sheet-schedule-front" data-id="'.esc_attr($sch->id).'">Supprimer</button></td>';
-=======
                         echo '<td><input type="time" class="edit-time-start-front" value="'.esc_attr($sch->time_start).'" data-id="'.esc_attr($sch->id).'"/></td>';
                         echo '<td><input type="time" class="edit-time-end-front" value="'.esc_attr($sch->time_end).'" data-id="'.esc_attr($sch->id).'"/></td>';
                         echo '<td><input type="number" class="edit-slot-count-front" value="'.esc_attr($sch->slot_count).'" min="1" max="10" data-id="'.esc_attr($sch->id).'"/></td>';
                         echo '<td><button class="button update-sheet-schedule-front" data-id="'.esc_attr($sch->id).'">Modifier</button> ';
                         echo '<button class="button delete-sheet-schedule-front" data-id="'.esc_attr($sch->id).'">Supprimer</button></td>';
->>>>>>> a5abe67 (feat: per-sheet-only schedules + default schedules on sheet creation; remove global fallback and add edit buttons in admin/frontend; backfill defaults for existing sheets)
                         echo '</tr>';
                     }
                     echo '</tbody></table>';
@@ -316,46 +309,6 @@ class Amhorti_Public {
                     nonce: $('.amhorti-admin-frontend').data('nonce')
                 }, function(resp){ if(resp.success){ location.reload(); } else { alert('Erreur: '+resp.data); } });
             });
-<<<<<<< HEAD
-            
-            // Edit sheet-specific schedule
-            $(document).on('click', '.edit-sheet-schedule-front', function(){
-                var btn = $(this);
-                var scheduleId = btn.data('id');
-                var currentDay = btn.data('day');
-                var currentStart = btn.data('start');
-                var currentEnd = btn.data('end');
-                var currentSlots = btn.data('slots');
-                
-                var newDay = prompt('Jour de la semaine (lundi, mardi, etc.):', currentDay);
-                if (!newDay) return;
-                
-                var newStart = prompt('Heure de début (HH:MM):', currentStart.substring(0, 5));
-                if (!newStart) return;
-                
-                var newEnd = prompt('Heure de fin (HH:MM):', currentEnd.substring(0, 5));
-                if (!newEnd) return;
-                
-                var newSlots = prompt('Nombre de créneaux (1-10):', currentSlots);
-                if (!newSlots) return;
-                
-                $.post(amhorti_admin_ajax.ajax_url, {
-                    action: 'amhorti_admin_update_schedule',
-                    schedule_id: scheduleId,
-                    day_of_week: newDay.toLowerCase(),
-                    time_start: newStart,
-                    time_end: newEnd,
-                    slot_count: parseInt(newSlots),
-                    nonce: $('.amhorti-admin-frontend').data('nonce')
-                }, function(resp){ 
-                    if(resp.success){ 
-                        alert('Horaire modifié avec succès !'); 
-                        location.reload(); 
-                    } else { 
-                        alert('Erreur: '+resp.data); 
-                    } 
-                });
-=======
 
             // Update sheet-specific schedule
             $(document).on('click', '.update-sheet-schedule-front', function(){
@@ -372,7 +325,6 @@ class Amhorti_Public {
                     slot_count: sc,
                     nonce: $('.amhorti-admin-frontend').data('nonce')
                 }, function(resp){ if(resp.success){ alert('Horaire mis à jour'); } else { alert('Erreur: '+resp.data); } });
->>>>>>> a5abe67 (feat: per-sheet-only schedules + default schedules on sheet creation; remove global fallback and add edit buttons in admin/frontend; backfill defaults for existing sheets)
             });
         })(jQuery);
         </script>
