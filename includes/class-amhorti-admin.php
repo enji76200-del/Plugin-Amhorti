@@ -21,8 +21,9 @@ class Amhorti_Admin {
         add_action('wp_ajax_amhorti_admin_get_css', array($this, 'ajax_get_css'));
         add_action('wp_ajax_amhorti_admin_add_sheet_schedule', array($this, 'ajax_add_sheet_schedule'));
         add_action('wp_ajax_amhorti_admin_update_schedule', array($this, 'ajax_update_schedule'));
-    add_action('wp_ajax_amhorti_admin_bulk_update_time_range', array($this, 'ajax_bulk_update_time_range'));
-    add_action('wp_ajax_amhorti_admin_bulk_delete_schedules', array($this, 'ajax_bulk_delete_schedules'));
+        add_action('wp_ajax_amhorti_admin_bulk_update_time_range', array($this, 'ajax_bulk_update_time_range'));
+        add_action('wp_ajax_amhorti_admin_bulk_delete_schedules', array($this, 'ajax_bulk_delete_schedules'));
+        add_action('wp_ajax_amhorti_admin_copy_day_schedules', array($this, 'ajax_copy_day_schedules'));
     }
     
     /**
@@ -608,6 +609,42 @@ class Amhorti_Admin {
                         <h4>Horaires Existants</h4>
                         <?php $this->display_sheet_schedules($sheet->id); ?>
                     </div>
+
+                    <div class="card">
+                        <h3>Copier/Coller les Horaires (Jour → Jour)</h3>
+                        <form class="amhorti-copy-day-form" data-sheet-id="<?php echo esc_attr($sheet->id); ?>">
+                            <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
+                            <table class="form-table">
+                                <tr>
+                                    <th scope="row">Depuis le jour</th>
+                                    <td>
+                                        <select name="from_day" required>
+                                            <?php foreach ($days_options as $k=>$label): ?>
+                                                <option value="<?php echo esc_attr($k); ?>"><?php echo esc_html($label); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Vers le jour</th>
+                                    <td>
+                                        <select name="to_day" required>
+                                            <?php foreach ($days_options as $k=>$label): ?>
+                                                <option value="<?php echo esc_attr($k); ?>"><?php echo esc_html($label); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Options</th>
+                                    <td>
+                                        <label><input type="checkbox" name="replace" value="1" /> Remplacer les horaires existants du jour cible</label>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p class="submit"><button type="submit" class="button">Copier vers le jour cible</button></p>
+                        </form>
+                    </div>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -664,6 +701,27 @@ class Amhorti_Admin {
                         location.reload();
                     } else {
                         alert('Erreur : ' + response.data);
+                    }
+                });
+            });
+
+            // Copy day schedules (within same sheet)
+            $(document).on('submit', '.amhorti-copy-day-form', function(e){
+                e.preventDefault();
+                var form = $(this);
+                $.post(ajaxurl, {
+                    action: 'amhorti_admin_copy_day_schedules',
+                    sheet_id: form.data('sheet-id'),
+                    from_day: form.find('select[name="from_day"]').val(),
+                    to_day: form.find('select[name="to_day"]').val(),
+                    replace: form.find('input[name="replace"]').is(':checked') ? 1 : 0,
+                    nonce: form.find('#amhorti_admin_nonce').val()
+                }, function(resp){
+                    if(resp.success){
+                        alert('Copie terminée. Ajoutés: '+(resp.data.added||0)+', ignorés (doublons): '+(resp.data.skipped||0));
+                        location.reload();
+                    } else {
+                        alert('Erreur: '+resp.data);
                     }
                 });
             });
@@ -1116,5 +1174,54 @@ class Amhorti_Admin {
         } else {
             wp_send_json_error('Échec de la mise à jour');
         }
+    }
+
+    /**
+     * Copy schedules from one day to another within the same sheet
+     */
+    public function ajax_copy_day_schedules() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        if (!current_user_can('manage_amhorti')) { wp_die('Unauthorized'); }
+        global $wpdb;
+        $table = $wpdb->prefix . 'amhorti_schedules';
+
+        $sheet_id = intval($_POST['sheet_id'] ?? 0);
+        $from_day = sanitize_text_field($_POST['from_day'] ?? '');
+        $to_day = sanitize_text_field($_POST['to_day'] ?? '');
+        $replace = isset($_POST['replace']) ? intval($_POST['replace']) : 0;
+
+        $valid_days = array('lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche');
+        if(!$sheet_id || !in_array($from_day, $valid_days, true) || !in_array($to_day, $valid_days, true)){
+            wp_send_json_error('Paramètres invalides');
+        }
+        if($from_day === $to_day){ wp_send_json_error('Les jours source et cible doivent être différents'); }
+
+        // Remplacer (soft delete) les horaires existants du jour cible si demandé
+        if ($replace) {
+            $wpdb->query($wpdb->prepare("UPDATE {$table} SET is_active = 0 WHERE sheet_id = %d AND day_of_week = %s AND is_active = 1", $sheet_id, $to_day));
+        }
+
+        // Récupérer source et existants cibles pour éviter doublons
+        $source = $wpdb->get_results($wpdb->prepare("SELECT time_start, time_end, slot_count FROM {$table} WHERE sheet_id = %d AND day_of_week = %s AND is_active = 1 ORDER BY time_start", $sheet_id, $from_day));
+        $existing_target = $wpdb->get_results($wpdb->prepare("SELECT time_start, time_end FROM {$table} WHERE sheet_id = %d AND day_of_week = %s AND is_active = 1", $sheet_id, $to_day));
+        $existing_map = array();
+        foreach ($existing_target as $row) { $existing_map[$row->time_start.'|'.$row->time_end] = true; }
+
+        $added = 0; $skipped = 0;
+        foreach ($source as $row) {
+            $key = $row->time_start.'|'.$row->time_end;
+            if (!$replace && isset($existing_map[$key])) { $skipped++; continue; }
+            $ins = $wpdb->insert($table, array(
+                'sheet_id' => $sheet_id,
+                'day_of_week' => $to_day,
+                'time_start' => $row->time_start,
+                'time_end' => $row->time_end,
+                'slot_count' => intval($row->slot_count),
+                'is_active' => 1,
+            ));
+            if ($ins !== false) { $added++; }
+        }
+
+        wp_send_json_success(array('added' => $added, 'skipped' => $skipped));
     }
 }
