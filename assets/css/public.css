@@ -145,9 +145,14 @@
     right: 2px;
     top: 50%;
     transform: translateY(-50%);
-    display: flex;
+    display: none;
     gap: 2px;
     z-index: 2;
+}
+
+/* Show actions only on hover of editable booking cell */
+td.booking-cell.editable:hover .amhorti-cell-actions {
+    display: flex;
 }
 
 /* Action icons */

@@ -641,7 +641,7 @@ class Amhorti_Public {
                                     spellcheck="false">
                                     <span class="amhorti-cell-text"><?php echo esc_html($booking_text); ?></span>
                                     <?php if ($show_plus || $show_minus): ?>
-                                        <span class="amhorti-cell-actions">
+                                        <span class="amhorti-cell-actions" contenteditable="false">
                                             <?php if ($show_plus): ?>
                                                 <button class="amhorti-icon amhorti-icon-plus" title="S'inscrire">+</button>
                                             <?php endif; ?>
