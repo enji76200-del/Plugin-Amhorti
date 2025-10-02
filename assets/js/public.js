@@ -39,6 +39,22 @@
                     $(this).blur();
                 }
             });
+            
+            // Quick signup (+ icon)
+            $(document).on('click', '.amhorti-plus', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var cell = $(this).closest('.booking-cell');
+                self.quickSignup(cell);
+            });
+            
+            // Quick delete (- icon)
+            $(document).on('click', '.amhorti-minus', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var cell = $(this).closest('.booking-cell');
+                self.quickDelete(cell);
+            });
         },
         
         switchSheet: function(sheetId) {
@@ -203,6 +219,114 @@
                     $(this).remove();
                 });
             }, 5000);
+        },
+        
+        quickSignup: function(cell) {
+            var self = this;
+            var btn = cell.find('.amhorti-plus');
+            
+            // Prevent double clicks
+            if (btn.prop('disabled')) {
+                return;
+            }
+            
+            btn.prop('disabled', true);
+            cell.addClass('saving');
+            
+            var data = {
+                action: 'amhorti_quick_signup',
+                sheet_id: this.currentSheet,
+                date: cell.data('date'),
+                time_start: cell.data('time-start'),
+                time_end: cell.data('time-end'),
+                slot_number: cell.data('slot'),
+                version: cell.data('version') || 0,
+                nonce: amhorti_ajax.nonce
+            };
+            
+            $.ajax({
+                url: amhorti_ajax.ajax_url,
+                type: 'POST',
+                data: data,
+                success: function(response) {
+                    if (response.success) {
+                        // Update cell content and data
+                        cell.text(response.data.text);
+                        cell.data('version', response.data.version);
+                        cell.data('booking-id', response.data.id);
+                        cell.addClass('saved').removeClass('saving');
+                        
+                        setTimeout(function() {
+                            cell.removeClass('saved');
+                            // Reload table to update action icons
+                            self.loadTable();
+                        }, 1000);
+                    } else {
+                        self.showMessage('Erreur: ' + (response.data.message || response.data), 'error');
+                        cell.removeClass('saving');
+                        btn.prop('disabled', false);
+                    }
+                },
+                error: function() {
+                    self.showMessage('Erreur réseau lors de l\'inscription', 'error');
+                    cell.removeClass('saving');
+                    btn.prop('disabled', false);
+                }
+            });
+        },
+        
+        quickDelete: function(cell) {
+            var self = this;
+            var btn = cell.find('.amhorti-minus');
+            var bookingId = cell.data('booking-id');
+            
+            if (!bookingId) {
+                return;
+            }
+            
+            // Prevent double clicks
+            if (btn.prop('disabled')) {
+                return;
+            }
+            
+            btn.prop('disabled', true);
+            cell.addClass('saving');
+            
+            var data = {
+                action: 'amhorti_quick_delete',
+                booking_id: bookingId,
+                nonce: amhorti_ajax.nonce
+            };
+            
+            $.ajax({
+                url: amhorti_ajax.ajax_url,
+                type: 'POST',
+                data: data,
+                success: function(response) {
+                    if (response.success) {
+                        // Clear cell content and data
+                        cell.text('');
+                        cell.data('version', 0);
+                        cell.data('booking-id', 0);
+                        cell.addClass('saved').removeClass('saving');
+                        
+                        setTimeout(function() {
+                            cell.removeClass('saved');
+                            // Reload table to update action icons
+                            self.loadTable();
+                        }, 1000);
+                    } else {
+                        self.showMessage('Erreur: ' + (response.data.message || response.data), 'error');
+                        cell.removeClass('saving');
+                        btn.prop('disabled', false);
+                    }
+                },
+                error: function() {
+                    self.showMessage('Erreur réseau lors de la suppression', 'error');
+                    cell.removeClass('saving');
+                    btn.prop('disabled', false);
+                }
+            });
         }
     };
     
