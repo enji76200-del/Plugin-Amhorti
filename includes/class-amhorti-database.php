@@ -334,6 +334,20 @@ class Amhorti_Database {
     }
     
     /**
+     * Get booking by slot (sheet, date, time, slot number)
+     */
+    public function get_booking_by_slot($sheet_id, $date, $time_start, $time_end, $slot_number) {
+        global $wpdb;
+        return $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$this->table_bookings} 
+                WHERE sheet_id = %d AND date = %s AND time_start = %s AND time_end = %s AND slot_number = %d",
+                $sheet_id, $date, $time_start, $time_end, $slot_number
+            )
+        );
+    }
+    
+    /**
      * Delete booking with ownership check
      */
     public function delete_booking($booking_id, $check_ownership = true) {

@@ -17,6 +17,8 @@ class Amhorti_Public {
         add_action('wp_ajax_nopriv_amhorti_delete_booking', array($this, 'ajax_delete_booking'));
         add_action('wp_ajax_amhorti_get_table_data', array($this, 'ajax_get_table_data'));
         add_action('wp_ajax_nopriv_amhorti_get_table_data', array($this, 'ajax_get_table_data'));
+        add_action('wp_ajax_amhorti_quick_signup', array($this, 'ajax_quick_signup'));
+        add_action('wp_ajax_amhorti_quick_delete', array($this, 'ajax_quick_delete'));
         add_action('wp_head', array($this, 'inject_custom_css'));
 
         // Shortcode to expose admin pages on frontend for allowed roles
@@ -410,6 +412,35 @@ class Amhorti_Public {
     }
     
     /**
+     * Generate auto-label for the current user
+     * Format: "login N." where N is uppercase first letter of last name
+     * Uses multibyte-safe functions for Unicode support (Cyrillic, etc.)
+     */
+    private function generate_user_label() {
+        if (!is_user_logged_in()) {
+            return '';
+        }
+        
+        $current_user = wp_get_current_user();
+        $login = $current_user->user_login;
+        $last_name = $current_user->last_name;
+        
+        // Extract first character of last name using multibyte-safe function
+        $initial = '';
+        if (!empty($last_name)) {
+            // Get first character and convert to uppercase (Unicode-safe)
+            $initial = mb_substr($last_name, 0, 1, 'UTF-8');
+            $initial = mb_strtoupper($initial, 'UTF-8');
+        }
+        
+        // Return format: "login N."
+        if ($initial) {
+            return $login . ' ' . $initial . '.';
+        }
+        return $login;
+    }
+    
+    /**
      * Generate table HTML for a specific sheet and week
      */
     public function generate_table_html($sheet_id, $start_date = null) {
@@ -491,6 +522,10 @@ class Amhorti_Public {
         // Sort time slots
         sort($all_time_slots);
         
+        // Get current user information
+        $current_user_id = is_user_logged_in() ? get_current_user_id() : 0;
+        $is_admin = current_user_can('manage_amhorti');
+        
         // Get existing bookings for all dates
         $bookings = array();
         foreach ($dates as $date) {
@@ -500,7 +535,8 @@ class Amhorti_Public {
                 $bookings[$key] = array(
                     'text' => $booking->booking_text,
                     'version' => isset($booking->version) ? $booking->version : 1,
-                    'id' => $booking->id
+                    'id' => $booking->id,
+                    'user_id' => isset($booking->user_id) ? $booking->user_id : null
                 );
             }
         }
@@ -588,6 +624,7 @@ class Amhorti_Public {
                                 $booking_text = $booking_data ? $booking_data['text'] : '';
                                 $booking_version = $booking_data ? $booking_data['version'] : 0;
                                 $booking_id = $booking_data ? $booking_data['id'] : 0;
+                                $booking_user_id = $booking_data ? $booking_data['user_id'] : null;
                                 
                                 $cell_class = 'booking-cell';
                                 $contenteditable = 'false';
@@ -598,6 +635,22 @@ class Amhorti_Public {
                                 } else {
                                     $cell_class .= ' disabled';
                                 }
+                                
+                                // Determine which action icons to show
+                                $show_plus = false;
+                                $show_minus = false;
+                                
+                                if ($is_valid_date && $current_user_id > 0) {
+                                    if (empty($booking_text)) {
+                                        // Empty cell: show + icon
+                                        $show_plus = true;
+                                    } else if ($booking_user_id) {
+                                        // Cell has booking: show - if user is owner or admin
+                                        if ($booking_user_id == $current_user_id || $is_admin) {
+                                            $show_minus = true;
+                                        }
+                                    }
+                                }
                                 ?>
                                 <td class="<?php echo $cell_class; ?>" 
                                     data-date="<?php echo esc_attr($date); ?>"
@@ -606,8 +659,9 @@ class Amhorti_Public {
                                     data-slot="<?php echo esc_attr($slot_num); ?>"
                                     data-version="<?php echo esc_attr($booking_version); ?>"
                                     data-booking-id="<?php echo esc_attr($booking_id); ?>"
+                                    data-booking-user-id="<?php echo esc_attr($booking_user_id ? $booking_user_id : ''); ?>"
                                     contenteditable="<?php echo $contenteditable; ?>"
-                                    spellcheck="false"><?php echo esc_html($booking_text); ?></td>
+                                    spellcheck="false"><?php echo esc_html($booking_text); ?><?php if ($show_plus || $show_minus): ?><span class="amhorti-cell-actions"><?php if ($show_plus): ?><button class="amhorti-icon amhorti-plus" title="S'inscrire">+</button><?php endif; ?><?php if ($show_minus): ?><button class="amhorti-icon amhorti-minus" title="Se désinscrire">−</button><?php endif; ?></span><?php endif; ?></td>
                                 <?php
                             } else {
                                 ?>
@@ -722,6 +776,112 @@ class Amhorti_Public {
         $custom_css = $this->database->get_custom_css();
         if ($custom_css) {
             echo "<style type=\"text/css\" id=\"amhorti-custom-css\">\n" . $custom_css . "\n</style>\n";
+        }
+    }
+    
+    /**
+     * AJAX handler for quick signup (+ icon)
+     * Automatically fills the cell with user's login + last name initial
+     */
+    public function ajax_quick_signup() {
+        check_ajax_referer('amhorti_nonce', 'nonce');
+        
+        // Must be logged in
+        if (!is_user_logged_in()) {
+            wp_send_json_error('Vous devez être connecté pour vous inscrire');
+            return;
+        }
+        
+        $sheet_id = intval($_POST['sheet_id']);
+        $date = sanitize_text_field($_POST['date']);
+        $time_start = sanitize_text_field($_POST['time_start']);
+        $time_end = sanitize_text_field($_POST['time_end']);
+        $slot_number = intval($_POST['slot_number']);
+        $expected_version = isset($_POST['version']) ? intval($_POST['version']) : null;
+        
+        // Validate date is not in the past or more than N days in the future
+        $booking_date = strtotime($date);
+        $current_date = strtotime(date('Y-m-d'));
+        $max_days = 7;
+        $sheet_config = $this->database->get_sheet_config($sheet_id);
+        if ($sheet_config) {
+            if (!empty($sheet_config->max_booking_days)) {
+                $max_days = max(7, intval($sheet_config->max_booking_days));
+            } elseif (!empty($sheet_config->allow_beyond_7_days) && intval($sheet_config->allow_beyond_7_days) === 1) {
+                $max_days = 365;
+            }
+        }
+        $max_future = strtotime('+' . $max_days . ' days', $current_date);
+        
+        if ($booking_date < $current_date || $booking_date > $max_future) {
+            wp_send_json_error('Date de réservation hors plage autorisée');
+            return;
+        }
+        
+        // Check if booking already exists
+        $existing = $this->database->get_booking_by_slot($sheet_id, $date, $time_start, $time_end, $slot_number);
+        
+        if ($existing && !empty($existing->booking_text)) {
+            // Booking exists - check ownership
+            $current_user_id = get_current_user_id();
+            $is_admin = current_user_can('manage_amhorti');
+            
+            // Only allow overwrite if admin
+            if (!$is_admin) {
+                wp_send_json_error('Ce créneau est déjà réservé');
+                return;
+            }
+        }
+        
+        // Generate auto-label
+        $booking_text = $this->generate_user_label();
+        
+        // Save booking with auto-generated label
+        $result = $this->database->save_booking($sheet_id, $date, $time_start, $time_end, $slot_number, $booking_text, $expected_version);
+        
+        if (isset($result['success']) && $result['success']) {
+            wp_send_json_success(array(
+                'version' => $result['version'],
+                'id' => $result['id'],
+                'text' => $booking_text
+            ));
+        } elseif (isset($result['error']) && $result['error'] === 'conflict') {
+            wp_send_json_error(array(
+                'message' => $result['message'],
+                'conflict' => true
+            ));
+        } else {
+            wp_send_json_error(isset($result['message']) ? $result['message'] : 'Erreur lors de l\'inscription');
+        }
+    }
+    
+    /**
+     * AJAX handler for quick delete (- icon)
+     * Deletes the booking if user is owner or admin
+     */
+    public function ajax_quick_delete() {
+        check_ajax_referer('amhorti_nonce', 'nonce');
+        
+        // Must be logged in
+        if (!is_user_logged_in()) {
+            wp_send_json_error('Vous devez être connecté');
+            return;
+        }
+        
+        $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+        
+        if (!$booking_id) {
+            wp_send_json_error('ID de réservation invalide');
+            return;
+        }
+        
+        // Delete with ownership check
+        $result = $this->database->delete_booking($booking_id, true);
+        
+        if (isset($result['success']) && $result['success']) {
+            wp_send_json_success();
+        } else {
+            wp_send_json_error(isset($result['message']) ? $result['message'] : 'Erreur lors de la suppression');
         }
     }
 }
