@@ -549,7 +549,12 @@ class Amhorti_Public {
                     <tr class="time-row" data-time-start="<?php echo esc_attr($start_time); ?>" data-time-end="<?php echo esc_attr($end_time); ?>">
                         <?php if ($slot_num == 1): ?>
                         <td class="time-cell" rowspan="<?php echo $max_slots; ?>">
-                            <?php echo esc_html($display_time); ?>
+                            <span class="time-range"><?php echo esc_html($display_time); ?></span>
+                            <?php if (current_user_can('manage_amhorti')): ?>
+                                <button type="button" class="amhorti-edit-time-range" title="Modifier l'heure du créneau" data-start="<?php echo esc_attr($start_time); ?>" data-end="<?php echo esc_attr($end_time); ?>">
+                                    Modifier
+                                </button>
+                            <?php endif; ?>
                         </td>
                         <?php endif; ?>
                         

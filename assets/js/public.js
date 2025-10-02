@@ -39,6 +39,45 @@
                     $(this).blur();
                 }
             });
+
+            // Edit time range buttons (visible for users with manage_amhorti)
+            $(document).on('click', '.amhorti-edit-time-range', function(){
+                var btn = $(this);
+                var oldStart = btn.data('start');
+                var oldEnd = btn.data('end');
+                var newStart = prompt('Nouvelle heure de début (HH:MM:SS)', oldStart);
+                if(newStart===null) return;
+                var newEnd = prompt('Nouvelle heure de fin (HH:MM:SS)', oldEnd);
+                if(newEnd===null) return;
+
+                // Confirm apply to which days: we will apply to all visible days in the current week for this sheet
+                if(!confirm('Appliquer à tous les jours affichés pour cette feuille ?')) return;
+
+                // Fire request to backend to update schedule entries for this sheet and time range
+                $.ajax({
+                    url: amhorti_admin_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'amhorti_admin_bulk_update_time_range',
+                        sheet_id: $('.amhorti-schedule-container').data('current-sheet'),
+                        old_start: oldStart,
+                        old_end: oldEnd,
+                        new_start: newStart,
+                        new_end: newEnd,
+                        nonce: amhorti_admin_ajax.nonce
+                    },
+                    success: function(resp){
+                        if(resp.success){
+                            alert('Créneau mis à jour');
+                            // reload table
+                            self.loadTable();
+                        } else {
+                            alert('Erreur: ' + (resp.data || 'échec de mise à jour'));
+                        }
+                    },
+                    error: function(){ alert('Erreur réseau'); }
+                });
+            });
         },
         
         switchSheet: function(sheetId) {
