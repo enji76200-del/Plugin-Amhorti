@@ -20,6 +20,7 @@ class Amhorti_Admin {
         add_action('wp_ajax_amhorti_admin_save_css', array($this, 'ajax_save_css'));
         add_action('wp_ajax_amhorti_admin_get_css', array($this, 'ajax_get_css'));
         add_action('wp_ajax_amhorti_admin_add_sheet_schedule', array($this, 'ajax_add_sheet_schedule'));
+        add_action('wp_ajax_amhorti_admin_update_schedule', array($this, 'ajax_update_schedule'));
     }
     
     /**
@@ -45,14 +46,7 @@ class Amhorti_Admin {
             array($this, 'sheets_page')
         );
         
-        add_submenu_page(
-            'amhorti-schedule',
-            'Gérer les Horaires',
-            'Gérer les Horaires',
-            'manage_options',
-            'amhorti-schedules',
-            array($this, 'schedules_page')
-        );
+        // Horaires globaux supprimés: on ne propose plus de page d'horaires globaux
         
         add_submenu_page(
             'amhorti-schedule',
@@ -219,135 +213,7 @@ class Amhorti_Admin {
     /**
      * Schedules management page
      */
-    public function schedules_page() {
-        $days = array('lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche');
-        
-        ?>
-        <div class="wrap">
-            <h1>Gérer les Horaires</h1>
-            
-            <div class="amhorti-admin-content">
-                <div class="card">
-                    <h2>Ajouter un Nouveau Créneau</h2>
-                    <form id="amhorti-add-schedule-form">
-                        <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
-                        <table class="form-table">
-                            <tr>
-                                <th scope="row">Jour de la Semaine</th>
-                                <td>
-                                    <select name="day_of_week" id="day_of_week" required>
-                                        <?php foreach ($days as $day): ?>
-                                        <option value="<?php echo esc_attr($day); ?>"><?php echo ucfirst($day); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Heure de Début</th>
-                                <td>
-                                    <input type="time" name="time_start" id="time_start" required />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Heure de Fin</th>
-                                <td>
-                                    <input type="time" name="time_end" id="time_end" required />
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Nombre de Créneaux</th>
-                                <td>
-                                    <input type="number" name="slot_count" id="slot_count" value="2" min="1" max="10" required />
-                                </td>
-                            </tr>
-                        </table>
-                        <p class="submit">
-                            <input type="submit" name="submit" id="submit" class="button button-primary" value="Ajouter le Créneau" />
-                        </p>
-                    </form>
-                </div>
-                
-                <?php foreach ($days as $day): ?>
-                    <?php $schedules = $this->database->get_schedule_for_day($day); ?>
-                    <div class="card">
-                        <h2><?php echo ucfirst($day); ?></h2>
-                        <?php if (!empty($schedules)): ?>
-                        <table class="wp-list-table widefat fixed striped">
-                            <thead>
-                                <tr>
-                                    <th>Heure de Début</th>
-                                    <th>Heure de Fin</th>
-                                    <th>Créneaux</th>
-                                    <th>Statut</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($schedules as $schedule): ?>
-                                <tr>
-                                    <td><?php echo esc_html($schedule->time_start); ?></td>
-                                    <td><?php echo esc_html($schedule->time_end); ?></td>
-                                    <td><?php echo esc_html($schedule->slot_count); ?></td>
-                                    <td><?php echo $schedule->is_active ? 'Actif' : 'Inactif'; ?></td>
-                                    <td>
-                                        <button class="button edit-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Modifier</button>
-                                        <button class="button button-link-delete delete-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Supprimer</button>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                        <?php else: ?>
-                        <p>Aucun créneau horaire configuré pour ce jour.</p>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-        
-        <script>
-        jQuery(document).ready(function($) {
-            $('#amhorti-add-schedule-form').on('submit', function(e) {
-                e.preventDefault();
-                var data = {
-                    action: 'amhorti_admin_save_schedule',
-                    day_of_week: $('#day_of_week').val(),
-                    time_start: $('#time_start').val(),
-                    time_end: $('#time_end').val(),
-                    slot_count: $('#slot_count').val(),
-                    nonce: $('#amhorti_admin_nonce').val()
-                };
-                
-                $.post(ajaxurl, data, function(response) {
-                    if (response.success) {
-                        location.reload();
-                    } else {
-                        alert('Erreur : ' + response.data);
-                    }
-                });
-            });
-            
-            $('.delete-schedule').on('click', function() {
-                if (confirm('Êtes-vous sûr de vouloir supprimer ce créneau horaire ?')) {
-                    var data = {
-                        action: 'amhorti_admin_delete_schedule',
-                        schedule_id: $(this).data('id'),
-                        nonce: $('#amhorti_admin_nonce').val()
-                    };
-                    
-                    $.post(ajaxurl, data, function(response) {
-                        if (response.success) {
-                            location.reload();
-                        } else {
-                            alert('Erreur : ' + response.data);
-                        }
-                    });
-                }
-            });
-        });
-        </script>
-        <?php
-    }
+    // La page d'horaires globaux est retirée; les horaires se gèrent par feuille dans la page "Configuration Avancée".
     
     /**
      * AJAX handler for saving sheets
@@ -371,7 +237,10 @@ class Amhorti_Admin {
         );
         
         if ($result !== false) {
-            wp_send_json_success();
+            // Créer des horaires par défaut pour cette feuille
+            $new_id = $wpdb->insert_id;
+            $this->database->create_default_schedules_for_sheet($new_id);
+            wp_send_json_success(array('sheet_id' => $new_id));
         } else {
             wp_send_json_error('Failed to save sheet');
         }
@@ -389,10 +258,12 @@ class Amhorti_Admin {
         
         global $wpdb;
         $table_schedules = $wpdb->prefix . 'amhorti_schedules';
-        
+        // This endpoint previously added global schedules. Keep for BC but attach to a specific sheet if provided.
+        $sheet_id = isset($_POST['sheet_id']) ? intval($_POST['sheet_id']) : null;
         $result = $wpdb->insert(
             $table_schedules,
             array(
+                'sheet_id' => $sheet_id,
                 'day_of_week' => sanitize_text_field($_POST['day_of_week']),
                 'time_start' => sanitize_text_field($_POST['time_start']),
                 'time_end' => sanitize_text_field($_POST['time_end']),
@@ -619,6 +490,25 @@ class Amhorti_Admin {
                     }
                 });
             });
+
+            // Update a schedule row (time/slots)
+            $(document).on('click', '.update-schedule', function() {
+                var row = $(this).closest('tr');
+                var id = $(this).data('id');
+                var timeStart = row.find('.edit-time-start[data-id="'+id+'"]').val();
+                var timeEnd = row.find('.edit-time-end[data-id="'+id+'"]').val();
+                var slots = row.find('.edit-slot-count[data-id="'+id+'"]').val();
+                $.post(ajaxurl, {
+                    action: 'amhorti_admin_update_schedule',
+                    schedule_id: id,
+                    time_start: timeStart,
+                    time_end: timeEnd,
+                    slot_count: slots,
+                    nonce: $('#amhorti_admin_nonce').val()
+                }, function(resp){
+                    if(resp.success){ alert('Horaire mis à jour'); } else { alert('Erreur: '+resp.data); }
+                });
+            });
         });
         </script>
         <?php
@@ -819,10 +709,17 @@ class Amhorti_Admin {
                 <?php foreach ($schedules as $schedule): ?>
                 <tr>
                     <td><?php echo esc_html(ucfirst($schedule->day_of_week)); ?></td>
-                    <td><?php echo esc_html($schedule->time_start); ?></td>
-                    <td><?php echo esc_html($schedule->time_end); ?></td>
-                    <td><?php echo esc_html($schedule->slot_count); ?></td>
                     <td>
+                        <input type="time" class="edit-time-start" value="<?php echo esc_attr($schedule->time_start); ?>" data-id="<?php echo esc_attr($schedule->id); ?>" />
+                    </td>
+                    <td>
+                        <input type="time" class="edit-time-end" value="<?php echo esc_attr($schedule->time_end); ?>" data-id="<?php echo esc_attr($schedule->id); ?>" />
+                    </td>
+                    <td>
+                        <input type="number" class="edit-slot-count" value="<?php echo esc_attr($schedule->slot_count); ?>" min="1" max="10" data-id="<?php echo esc_attr($schedule->id); ?>" />
+                    </td>
+                    <td>
+                        <button class="button update-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Modifier</button>
                         <button class="button button-link-delete delete-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Supprimer</button>
                     </td>
                 </tr>
@@ -847,10 +744,10 @@ class Amhorti_Admin {
         
         $sheet_id = intval($_POST['sheet_id']);
         $sheet_name = sanitize_text_field($_POST['sheet_name']);
-    $active_days = isset($_POST['active_days']) ? $_POST['active_days'] : array();
-    $allow_beyond_7_days = isset($_POST['allow_beyond_7_days']) ? intval($_POST['allow_beyond_7_days']) : 0;
-    $max_booking_days = isset($_POST['max_booking_days']) ? max(7, intval($_POST['max_booking_days'])) : 7;
-        
+        $active_days = isset($_POST['active_days']) ? $_POST['active_days'] : array();
+        $allow_beyond_7_days = isset($_POST['allow_beyond_7_days']) ? intval($_POST['allow_beyond_7_days']) : 0;
+        $max_booking_days = isset($_POST['max_booking_days']) ? max(7, intval($_POST['max_booking_days'])) : 7;
+
         $result = $wpdb->update(
             $table_sheets,
             array(
@@ -861,14 +758,14 @@ class Amhorti_Admin {
             ),
             array('id' => $sheet_id)
         );
-        
+
         if ($result !== false) {
             wp_send_json_success();
         } else {
             wp_send_json_error('Échec de la mise à jour de la feuille');
         }
     }
-    
+
     /**
      * AJAX handler for saving CSS
      */
@@ -954,5 +851,20 @@ class Amhorti_Admin {
         } else {
             wp_send_json_error('Échec de l\'ajout de l\'horaire');
         }
+    }
+
+    /**
+     * AJAX handler for updating a sheet-specific schedule (time/slots)
+     */
+    public function ajax_update_schedule() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        if (!current_user_can('manage_amhorti')) { wp_die('Unauthorized'); }
+        $id = intval($_POST['schedule_id']);
+        $fields = array();
+        if (isset($_POST['time_start'])) $fields['time_start'] = sanitize_text_field($_POST['time_start']);
+        if (isset($_POST['time_end'])) $fields['time_end'] = sanitize_text_field($_POST['time_end']);
+        if (isset($_POST['slot_count'])) $fields['slot_count'] = intval($_POST['slot_count']);
+        $ok = $this->database->update_schedule($id, $fields);
+        if ($ok !== false) { wp_send_json_success(); } else { wp_send_json_error('Échec de la mise à jour'); }
     }
 }

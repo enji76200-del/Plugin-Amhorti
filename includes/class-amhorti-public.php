@@ -87,7 +87,7 @@ class Amhorti_Public {
         $tabs = array(
             'overview' => __('Accueil', 'amhorti-schedule'),
             'sheets' => __('Gérer les Feuilles', 'amhorti-schedule'),
-            'schedules' => __('Gérer les Horaires', 'amhorti-schedule'),
+            // Onglet "Horaires" global retiré: gestion par feuille dans Avancé
             'advanced' => __('Configuration Avancée', 'amhorti-schedule'),
             'css' => __('Éditeur CSS', 'amhorti-schedule'),
         );
@@ -112,9 +112,7 @@ class Amhorti_Public {
                 <div class="amhorti-panel" data-panel="sheets" style="display: <?php echo $active==='sheets'?'block':'none'; ?>;">
                     <?php $this->render_admin_sheets_panel(); ?>
                 </div>
-                <div class="amhorti-panel" data-panel="schedules" style="display: <?php echo $active==='schedules'?'block':'none'; ?>;">
-                    <?php $this->render_admin_schedules_panel(); ?>
-                </div>
+                
                 <div class="amhorti-panel" data-panel="advanced" style="display: <?php echo $active==='advanced'?'block':'none'; ?>;">
                     <?php $this->render_admin_advanced_panel(); ?>
                 </div>
@@ -208,68 +206,7 @@ class Amhorti_Public {
         <?php
     }
 
-    private function render_admin_schedules_panel() {
-        $days = array('lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche');
-        ?>
-        <div class="card">
-            <h2>Ajouter un Nouveau Créneau</h2>
-            <form id="amhorti-add-schedule-form-front">
-                <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
-                <p><label>Jour
-                    <select id="day_of_week_front"><?php foreach($days as $d){ echo '<option value="'.esc_attr($d).'">'.ucfirst($d).'</option>'; } ?></select>
-                </label></p>
-                <p><label>Heure de Début <input type="time" id="time_start_front" required></label></p>
-                <p><label>Heure de Fin <input type="time" id="time_end_front" required></label></p>
-                <p><label>Créneaux <input type="number" id="slot_count_front" value="2" min="1" max="10" required></label></p>
-                <p><button type="submit" class="button button-primary">Ajouter</button></p>
-            </form>
-        </div>
-        <div class="card">
-            <h2>Créneaux par jour</h2>
-            <?php foreach($days as $day): $schedules = $this->database->get_schedule_for_day($day); ?>
-            <h3><?php echo ucfirst($day); ?></h3>
-            <?php if(!empty($schedules)): ?>
-            <table class="wp-list-table widefat fixed striped"><thead><tr><th>Début</th><th>Fin</th><th>Créneaux</th><th>Statut</th><th>Actions</th></tr></thead><tbody>
-                <?php foreach($schedules as $s): ?>
-                <tr>
-                    <td><?php echo esc_html($s->time_start); ?></td>
-                    <td><?php echo esc_html($s->time_end); ?></td>
-                    <td><?php echo esc_html($s->slot_count); ?></td>
-                    <td><?php echo $s->is_active ? 'Actif' : 'Inactif'; ?></td>
-                    <td><button class="button delete-schedule-front" data-id="<?php echo esc_attr($s->id); ?>">Supprimer</button></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody></table>
-            <?php else: ?><p>Aucun créneau.</p><?php endif; ?>
-            <?php endforeach; ?>
-        </div>
-        <script>
-        (function($){
-            $(document).on('submit', '#amhorti-add-schedule-form-front', function(e){
-                e.preventDefault();
-                $.post(amhorti_admin_ajax.ajax_url, {
-                    action: 'amhorti_admin_save_schedule',
-                    day_of_week: $('#day_of_week_front').val(),
-                    time_start: $('#time_start_front').val(),
-                    time_end: $('#time_end_front').val(),
-                    slot_count: $('#slot_count_front').val(),
-                    nonce: $('.amhorti-admin-frontend').data('nonce')
-                }, function(resp){
-                    if(resp.success){ location.reload(); } else { alert('Erreur: '+resp.data); }
-                });
-            });
-            $(document).on('click', '.delete-schedule-front', function(){
-                if(!confirm('Supprimer ce créneau ?')) return;
-                $.post(amhorti_admin_ajax.ajax_url, {
-                    action: 'amhorti_admin_delete_schedule',
-                    schedule_id: $(this).data('id'),
-                    nonce: $('.amhorti-admin-frontend').data('nonce')
-                }, function(resp){ if(resp.success){ location.reload(); } else { alert('Erreur: '+resp.data); } });
-            });
-        })(jQuery);
-        </script>
-        <?php
-    }
+    // Onglet Horaires supprimé (plus d'horaires globaux); tout se fait par feuille dans Avancé.
 
     private function render_admin_advanced_panel() {
         $sheets = $this->database->get_sheets();
@@ -316,10 +253,11 @@ class Amhorti_Public {
                     foreach($sheet_schedules as $sch){
                         echo '<tr>';
                         echo '<td>'.esc_html(ucfirst($sch->day_of_week)).'</td>';
-                        echo '<td>'.esc_html($sch->time_start).'</td>';
-                        echo '<td>'.esc_html($sch->time_end).'</td>';
-                        echo '<td>'.esc_html($sch->slot_count).'</td>';
-                        echo '<td><button class="button delete-sheet-schedule-front" data-id="'.esc_attr($sch->id).'">Supprimer</button></td>';
+                        echo '<td><input type="time" class="edit-time-start-front" value="'.esc_attr($sch->time_start).'" data-id="'.esc_attr($sch->id).'"/></td>';
+                        echo '<td><input type="time" class="edit-time-end-front" value="'.esc_attr($sch->time_end).'" data-id="'.esc_attr($sch->id).'"/></td>';
+                        echo '<td><input type="number" class="edit-slot-count-front" value="'.esc_attr($sch->slot_count).'" min="1" max="10" data-id="'.esc_attr($sch->id).'"/></td>';
+                        echo '<td><button class="button update-sheet-schedule-front" data-id="'.esc_attr($sch->id).'">Modifier</button> ';
+                        echo '<button class="button delete-sheet-schedule-front" data-id="'.esc_attr($sch->id).'">Supprimer</button></td>';
                         echo '</tr>';
                     }
                     echo '</tbody></table>';
@@ -371,6 +309,23 @@ class Amhorti_Public {
                     nonce: $('.amhorti-admin-frontend').data('nonce')
                 }, function(resp){ if(resp.success){ location.reload(); } else { alert('Erreur: '+resp.data); } });
             });
+
+            // Update sheet-specific schedule
+            $(document).on('click', '.update-sheet-schedule-front', function(){
+                var id = $(this).data('id');
+                var row = $(this).closest('tr');
+                var ts = row.find('.edit-time-start-front[data-id="'+id+'"]').val();
+                var te = row.find('.edit-time-end-front[data-id="'+id+'"]').val();
+                var sc = row.find('.edit-slot-count-front[data-id="'+id+'"]').val();
+                $.post(amhorti_admin_ajax.ajax_url, {
+                    action: 'amhorti_admin_update_schedule',
+                    schedule_id: id,
+                    time_start: ts,
+                    time_end: te,
+                    slot_count: sc,
+                    nonce: $('.amhorti-admin-frontend').data('nonce')
+                }, function(resp){ if(resp.success){ alert('Horaire mis à jour'); } else { alert('Erreur: '+resp.data); } });
+            });
         })(jQuery);
         </script>
         <?php
@@ -407,6 +362,56 @@ class Amhorti_Public {
         })(jQuery);
         </script>
         <?php
+    }
+    
+    /**
+     * Build user label with Unicode support (login N.)
+     */
+    private function build_user_label() {
+        if (!is_user_logged_in()) {
+            return '';
+        }
+        
+        $current_user = wp_get_current_user();
+        $login = $current_user->user_login;
+        $last_name = $current_user->last_name;
+        
+        // If no last name, just return login
+        if (empty($last_name)) {
+            return $login;
+        }
+        
+        // Use multibyte functions if available for Unicode support
+        if (function_exists('mb_substr') && function_exists('mb_strtoupper')) {
+            $initial = mb_strtoupper(mb_substr($last_name, 0, 1, 'UTF-8'), 'UTF-8');
+        } else {
+            $initial = strtoupper(substr($last_name, 0, 1));
+        }
+        
+        return $login . ' ' . $initial . '.';
+    }
+    
+    /**
+     * Get user last name initial with Unicode support
+     */
+    private function get_user_last_initial() {
+        if (!is_user_logged_in()) {
+            return '';
+        }
+        
+        $current_user = wp_get_current_user();
+        $last_name = $current_user->last_name;
+        
+        if (empty($last_name)) {
+            return '';
+        }
+        
+        // Use multibyte functions if available for Unicode support
+        if (function_exists('mb_substr') && function_exists('mb_strtoupper')) {
+            return mb_strtoupper(mb_substr($last_name, 0, 1, 'UTF-8'), 'UTF-8');
+        } else {
+            return strtoupper(substr($last_name, 0, 1));
+        }
     }
     
     /**
@@ -589,6 +594,15 @@ class Amhorti_Public {
                                 $booking_version = $booking_data ? $booking_data['version'] : 0;
                                 $booking_id = $booking_data ? $booking_data['id'] : 0;
                                 
+                                // Get booking owner info
+                                $booking_owner_id = 0;
+                                if ($booking_data && $booking_id > 0) {
+                                    $booking_obj = $this->database->get_booking_by_id($booking_id);
+                                    if ($booking_obj) {
+                                        $booking_owner_id = $booking_obj->user_id ? $booking_obj->user_id : 0;
+                                    }
+                                }
+                                
                                 $cell_class = 'booking-cell';
                                 $contenteditable = 'false';
                                 
@@ -598,6 +612,22 @@ class Amhorti_Public {
                                 } else {
                                     $cell_class .= ' disabled';
                                 }
+                                
+                                // Determine which icon to show
+                                $show_plus = false;
+                                $show_minus = false;
+                                if ($is_valid_date) {
+                                    if (empty($booking_text)) {
+                                        $show_plus = true;
+                                    } else {
+                                        // Show minus if user is owner or admin
+                                        $current_user_id = is_user_logged_in() ? get_current_user_id() : 0;
+                                        $is_admin = current_user_can('manage_amhorti');
+                                        if ($current_user_id > 0 && ($booking_owner_id == $current_user_id || $is_admin)) {
+                                            $show_minus = true;
+                                        }
+                                    }
+                                }
                                 ?>
                                 <td class="<?php echo $cell_class; ?>" 
                                     data-date="<?php echo esc_attr($date); ?>"
@@ -606,8 +636,21 @@ class Amhorti_Public {
                                     data-slot="<?php echo esc_attr($slot_num); ?>"
                                     data-version="<?php echo esc_attr($booking_version); ?>"
                                     data-booking-id="<?php echo esc_attr($booking_id); ?>"
+                                    data-owner-id="<?php echo esc_attr($booking_owner_id); ?>"
                                     contenteditable="<?php echo $contenteditable; ?>"
-                                    spellcheck="false"><?php echo esc_html($booking_text); ?></td>
+                                    spellcheck="false">
+                                    <span class="amhorti-cell-text"><?php echo esc_html($booking_text); ?></span>
+                                    <?php if ($show_plus || $show_minus): ?>
+                                        <span class="amhorti-cell-actions" contenteditable="false">
+                                            <?php if ($show_plus): ?>
+                                                <button class="amhorti-icon amhorti-icon-plus" title="S'inscrire">+</button>
+                                            <?php endif; ?>
+                                            <?php if ($show_minus): ?>
+                                                <button class="amhorti-icon amhorti-icon-minus" title="Se désinscrire">−</button>
+                                            <?php endif; ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
                                 <?php
                             } else {
                                 ?>
@@ -650,8 +693,40 @@ class Amhorti_Public {
         $time_start = sanitize_text_field($_POST['time_start']);
         $time_end = sanitize_text_field($_POST['time_end']);
         $slot_number = intval($_POST['slot_number']);
-        $booking_text = sanitize_text_field($_POST['booking_text']);
+        $mode = isset($_POST['mode']) ? sanitize_text_field($_POST['mode']) : 'normal';
         $expected_version = isset($_POST['version']) ? intval($_POST['version']) : null;
+        
+        // Handle signup mode with server-side label building
+        if ($mode === 'signup') {
+            if (!is_user_logged_in()) {
+                wp_send_json_error('Vous devez être connecté pour vous inscrire');
+                return;
+            }
+            
+            // Check if slot is already taken by another user
+            global $wpdb;
+            $table_bookings = $wpdb->prefix . 'amhorti_bookings';
+            $existing = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM $table_bookings WHERE sheet_id = %d AND date = %s AND time_start = %s AND time_end = %s AND slot_number = %d",
+                $sheet_id, $date, $time_start, $time_end, $slot_number
+            ));
+            
+            if ($existing && !empty($existing->booking_text)) {
+                // Check if user is owner or admin
+                $current_user_id = get_current_user_id();
+                $is_admin = current_user_can('manage_amhorti');
+                if ($existing->user_id != $current_user_id && !$is_admin) {
+                    wp_send_json_error('Ce créneau est déjà réservé');
+                    return;
+                }
+            }
+            
+            // Build label on server-side
+            $booking_text = $this->build_user_label();
+        } else {
+            // Normal mode: use provided text
+            $booking_text = sanitize_text_field($_POST['booking_text']);
+        }
         
         // Validate date is not in the past or more than N days in the future
         $booking_date = strtotime($date);
@@ -681,7 +756,8 @@ class Amhorti_Public {
         if (isset($result['success']) && $result['success']) {
             wp_send_json_success(array(
                 'version' => $result['version'],
-                'id' => $result['id']
+                'id' => $result['id'],
+                'booking_text' => $booking_text
             ));
         } elseif (isset($result['error']) && $result['error'] === 'conflict') {
             wp_send_json_error(array(

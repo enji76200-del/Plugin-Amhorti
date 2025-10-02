@@ -43,10 +43,34 @@ class Amhorti_Schedule {
         wp_enqueue_style('amhorti-public-css', AMHORTI_PLUGIN_URL . 'assets/css/public.css', array(), AMHORTI_VERSION);
         wp_enqueue_script('amhorti-public-js', AMHORTI_PLUGIN_URL . 'assets/js/public.js', array('jquery'), AMHORTI_VERSION, true);
         
+        // Get user info for signup feature
+        $user_login = '';
+        $user_last_initial = '';
+        $is_logged_in = is_user_logged_in();
+        
+        if ($is_logged_in) {
+            $current_user = wp_get_current_user();
+            $user_login = $current_user->user_login;
+            $last_name = $current_user->last_name;
+            
+            if (!empty($last_name)) {
+                // Use multibyte functions if available for Unicode support
+                if (function_exists('mb_substr') && function_exists('mb_strtoupper')) {
+                    $user_last_initial = mb_strtoupper(mb_substr($last_name, 0, 1, 'UTF-8'), 'UTF-8');
+                } else {
+                    $user_last_initial = strtoupper(substr($last_name, 0, 1));
+                }
+            }
+        }
+        
         // Localize script for AJAX
         wp_localize_script('amhorti-public-js', 'amhorti_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('amhorti_nonce')
+            'nonce' => wp_create_nonce('amhorti_nonce'),
+            'is_logged_in' => $is_logged_in,
+            'user_login' => $user_login,
+            'user_last_initial' => $user_last_initial,
+            'current_user_id' => $is_logged_in ? get_current_user_id() : 0
         ));
 
         // Localize an object for admin AJAX used in frontend portal

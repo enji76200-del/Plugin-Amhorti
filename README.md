@@ -18,6 +18,10 @@ Un plugin WordPress qui crée un tableau de planification similaire à Excel ave
 - **🆕 Interface en français** : Navigation et administration entièrement traduites
 - **✨ Contrôle de concurrence optimiste** : Prévention des pertes de données lors d'éditions simultanées
 - **✨ Suivi des propriétaires** : Traçabilité des créateurs de réservations
+- **🆕 v1.2.0 : Inscription/Désinscription en un clic** : Icônes + (vert) et − (rouge) pour inscription rapide avec label automatique "login N."
+- **🆕 v1.2.0 : Support Unicode complet** : Labels fonctionnent avec tous les alphabets (cyrillique, arabe, chinois, etc.)
+- **🆕 v1.2.0 : Horaires exclusifs par feuille** : Chaque feuille a ses propres horaires, plus de horaires globaux
+- **🆕 v1.2.0 : Modification des horaires** : Bouton "Modifier" dans l'interface d'administration pour éditer les horaires existants
 
 ## Installation
 
