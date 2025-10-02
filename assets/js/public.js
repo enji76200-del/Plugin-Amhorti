@@ -27,8 +27,28 @@
                 self.navigate(direction);
             });
             
-            // Cell editing
-            $(document).on('input blur', '.booking-cell.editable', function() {
+            // Icon click handlers
+            $(document).on('click', '.amhorti-icon-plus', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var cell = $(this).closest('.booking-cell');
+                self.handleSignup(cell);
+            });
+            
+            $(document).on('click', '.amhorti-icon-minus', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var cell = $(this).closest('.booking-cell');
+                self.handleUnsubscribe(cell);
+            });
+            
+            // Cell editing (skip if just clicked an icon)
+            $(document).on('input blur', '.booking-cell.editable', function(e) {
+                // Skip save if this was triggered by icon action
+                if ($(this).data('skip-save')) {
+                    $(this).removeData('skip-save');
+                    return;
+                }
                 self.debouncedSave($(this));
             });
             
@@ -185,6 +205,138 @@
                 // Let user try again (will use updated version from reload)
                 cell.removeClass('conflict');
             }
+        },
+        
+        handleSignup: function(cell) {
+            var self = this;
+            
+            // Check if user is logged in
+            if (!amhorti_ajax.is_logged_in) {
+                alert('Vous devez être connecté pour vous inscrire');
+                return;
+            }
+            
+            // Build label from localized data
+            var label = amhorti_ajax.user_login;
+            if (amhorti_ajax.user_last_initial) {
+                label += ' ' + amhorti_ajax.user_last_initial + '.';
+            }
+            
+            // Mark to skip automatic save
+            cell.data('skip-save', true);
+            
+            // Update cell text immediately (optimistic update)
+            cell.find('.amhorti-cell-text').text(label);
+            
+            // Add loading state
+            cell.addClass('saving');
+            
+            // Send AJAX request
+            $.ajax({
+                url: amhorti_ajax.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'amhorti_save_booking',
+                    mode: 'signup',
+                    sheet_id: self.currentSheet,
+                    date: cell.data('date'),
+                    time_start: cell.data('time-start'),
+                    time_end: cell.data('time-end'),
+                    slot_number: cell.data('slot'),
+                    version: cell.data('version') || 0,
+                    nonce: amhorti_ajax.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Update cell data
+                        cell.data('version', response.data.version);
+                        cell.data('booking-id', response.data.id);
+                        cell.data('owner-id', amhorti_ajax.current_user_id);
+                        
+                        // Update UI: swap + for -
+                        cell.find('.amhorti-icon-plus').remove();
+                        if (!cell.find('.amhorti-icon-minus').length) {
+                            cell.find('.amhorti-cell-actions').html('<button class="amhorti-icon amhorti-icon-minus" title="Se désinscrire">−</button>');
+                        }
+                        
+                        cell.addClass('saved').removeClass('saving');
+                        setTimeout(function() {
+                            cell.removeClass('saved');
+                        }, 1000);
+                    } else {
+                        // Revert text on error
+                        cell.find('.amhorti-cell-text').text('');
+                        self.showMessage('Erreur: ' + response.data, 'error');
+                        cell.removeClass('saving');
+                    }
+                },
+                error: function() {
+                    // Revert text on error
+                    cell.find('.amhorti-cell-text').text('');
+                    self.showMessage('Erreur réseau lors de l\'inscription', 'error');
+                    cell.removeClass('saving');
+                }
+            });
+        },
+        
+        handleUnsubscribe: function(cell) {
+            var self = this;
+            var bookingId = cell.data('booking-id');
+            
+            if (!bookingId) {
+                alert('Aucune réservation à supprimer');
+                return;
+            }
+            
+            if (!confirm('Voulez-vous vous désinscrire de ce créneau ?')) {
+                return;
+            }
+            
+            // Mark to skip automatic save
+            cell.data('skip-save', true);
+            
+            // Add loading state
+            cell.addClass('saving');
+            
+            // Send AJAX delete request
+            $.ajax({
+                url: amhorti_ajax.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'amhorti_delete_booking',
+                    booking_id: bookingId,
+                    nonce: amhorti_ajax.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Clear cell text
+                        cell.find('.amhorti-cell-text').text('');
+                        
+                        // Reset version and booking ID
+                        cell.data('version', 0);
+                        cell.data('booking-id', 0);
+                        cell.data('owner-id', 0);
+                        
+                        // Update UI: swap - for +
+                        cell.find('.amhorti-icon-minus').remove();
+                        if (!cell.find('.amhorti-icon-plus').length) {
+                            cell.find('.amhorti-cell-actions').html('<button class="amhorti-icon amhorti-icon-plus" title="S\'inscrire">+</button>');
+                        }
+                        
+                        cell.addClass('saved').removeClass('saving');
+                        setTimeout(function() {
+                            cell.removeClass('saved');
+                        }, 1000);
+                    } else {
+                        self.showMessage('Erreur: ' + response.data, 'error');
+                        cell.removeClass('saving');
+                    }
+                },
+                error: function() {
+                    self.showMessage('Erreur réseau lors de la désinscription', 'error');
+                    cell.removeClass('saving');
+                }
+            });
         },
         
         formatDate: function(date) {

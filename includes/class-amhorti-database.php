@@ -117,6 +117,61 @@ class Amhorti_Database {
         if (!$col4) {
             $wpdb->query("ALTER TABLE {$this->table_bookings} ADD COLUMN version INT(11) DEFAULT 1");
         }
+        
+        // Migrate global schedules to per-sheet schedules (one-time migration)
+        $this->migrate_global_schedules_to_sheets();
+    }
+    
+    /**
+     * Migrate global schedules (sheet_id IS NULL or 0) to sheet-specific schedules
+     */
+    private function migrate_global_schedules_to_sheets() {
+        global $wpdb;
+        
+        // Check if migration already happened by looking for a migration marker
+        $migration_marker = get_option('amhorti_schedules_migrated_v1_2_0');
+        if ($migration_marker) {
+            return; // Already migrated
+        }
+        
+        // Get all global schedules (sheet_id IS NULL or 0)
+        $global_schedules = $wpdb->get_results(
+            "SELECT * FROM {$this->table_schedules} WHERE (sheet_id IS NULL OR sheet_id = 0) AND is_active = 1"
+        );
+        
+        // Get all sheets
+        $sheets = $wpdb->get_results("SELECT id FROM {$this->table_sheets} WHERE is_active = 1");
+        
+        // If we have global schedules and sheets, duplicate them for each sheet
+        if (!empty($global_schedules) && !empty($sheets)) {
+            foreach ($sheets as $sheet) {
+                // Check if this sheet already has any schedules
+                $existing_count = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$this->table_schedules} WHERE sheet_id = %d AND is_active = 1",
+                    $sheet->id
+                ));
+                
+                // Only migrate if sheet has no schedules
+                if ($existing_count == 0) {
+                    foreach ($global_schedules as $global_schedule) {
+                        $wpdb->insert(
+                            $this->table_schedules,
+                            array(
+                                'sheet_id' => $sheet->id,
+                                'day_of_week' => $global_schedule->day_of_week,
+                                'time_start' => $global_schedule->time_start,
+                                'time_end' => $global_schedule->time_end,
+                                'slot_count' => $global_schedule->slot_count,
+                                'is_active' => 1
+                            )
+                        );
+                    }
+                }
+            }
+        }
+        
+        // Mark migration as completed
+        update_option('amhorti_schedules_migrated_v1_2_0', true);
     }
     
     /**
@@ -127,6 +182,7 @@ class Amhorti_Database {
         
         // Insert default sheets if they don't exist
         $sheet_count = $wpdb->get_var("SELECT COUNT(*) FROM {$this->table_sheets}");
+        $sheet_ids = array();
         if ($sheet_count == 0) {
             $default_sheets = array(
                 array('name' => 'Feuille 1', 'sort_order' => 1),
@@ -137,13 +193,20 @@ class Amhorti_Database {
             
             foreach ($default_sheets as $sheet) {
                 $wpdb->insert($this->table_sheets, $sheet);
+                $sheet_ids[] = $wpdb->insert_id;
+            }
+        } else {
+            // Get existing sheet IDs
+            $sheets = $wpdb->get_results("SELECT id FROM {$this->table_sheets} WHERE is_active = 1");
+            foreach ($sheets as $sheet) {
+                $sheet_ids[] = $sheet->id;
             }
         }
         
-        // Insert default schedules if they don't exist
+        // Insert default schedules for each sheet if they don't exist
         $schedule_count = $wpdb->get_var("SELECT COUNT(*) FROM {$this->table_schedules}");
-        if ($schedule_count == 0) {
-            $default_schedules = array(
+        if ($schedule_count == 0 && !empty($sheet_ids)) {
+            $default_schedule_template = array(
                 // Lundi
                 array('day_of_week' => 'lundi', 'time_start' => '06:00:00', 'time_end' => '07:00:00', 'slot_count' => 3),
                 array('day_of_week' => 'lundi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
@@ -210,8 +273,12 @@ class Amhorti_Database {
                 // Dimanche - no slots by default
             );
             
-            foreach ($default_schedules as $schedule) {
-                $wpdb->insert($this->table_schedules, $schedule);
+            // Create schedules for each sheet
+            foreach ($sheet_ids as $sheet_id) {
+                foreach ($default_schedule_template as $schedule) {
+                    $schedule['sheet_id'] = $sheet_id;
+                    $wpdb->insert($this->table_schedules, $schedule);
+                }
             }
         }
     }
@@ -227,14 +294,14 @@ class Amhorti_Database {
     }
     
     /**
-     * Get schedule for a specific day
+     * Get schedule for a specific day (global schedules only - kept for backward compatibility)
      */
     public function get_schedule_for_day($day_of_week) {
         global $wpdb;
         return $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$this->table_schedules} 
-                WHERE day_of_week = %s AND is_active = 1 
+                WHERE (sheet_id IS NULL OR sheet_id = 0) AND day_of_week = %s AND is_active = 1 
                 ORDER BY time_start ASC",
                 $day_of_week
             )
@@ -380,13 +447,13 @@ class Amhorti_Database {
     }
     
     /**
-     * Get schedules for a specific sheet and day
+     * Get schedules for a specific sheet and day (no global fallback)
      */
     public function get_schedule_for_sheet_day($sheet_id, $day_of_week) {
         global $wpdb;
         
-        // First try to get sheet-specific schedules
-        $sheet_schedules = $wpdb->get_results(
+        // Get sheet-specific schedules only (no global fallback)
+        return $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$this->table_schedules} 
                 WHERE sheet_id = %d AND day_of_week = %s AND is_active = 1 
@@ -394,13 +461,6 @@ class Amhorti_Database {
                 $sheet_id, $day_of_week
             )
         );
-        
-        // If no sheet-specific schedules, fall back to global schedules
-        if (empty($sheet_schedules)) {
-            return $this->get_schedule_for_day($day_of_week);
-        }
-        
-        return $sheet_schedules;
     }
 
     /**
@@ -442,5 +502,27 @@ class Amhorti_Database {
                 $sheet_id
             )
         );
+    }
+    
+    /**
+     * Update schedule by ID
+     */
+    public function update_schedule($schedule_id, $day_of_week, $time_start, $time_end, $slot_count) {
+        global $wpdb;
+        
+        $result = $wpdb->update(
+            $this->table_schedules,
+            array(
+                'day_of_week' => $day_of_week,
+                'time_start' => $time_start,
+                'time_end' => $time_end,
+                'slot_count' => $slot_count
+            ),
+            array('id' => $schedule_id),
+            array('%s', '%s', '%s', '%d'),
+            array('%d')
+        );
+        
+        return $result !== false;
     }
 }

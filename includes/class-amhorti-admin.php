@@ -20,6 +20,7 @@ class Amhorti_Admin {
         add_action('wp_ajax_amhorti_admin_save_css', array($this, 'ajax_save_css'));
         add_action('wp_ajax_amhorti_admin_get_css', array($this, 'ajax_get_css'));
         add_action('wp_ajax_amhorti_admin_add_sheet_schedule', array($this, 'ajax_add_sheet_schedule'));
+        add_action('wp_ajax_amhorti_admin_update_schedule', array($this, 'ajax_update_schedule'));
     }
     
     /**
@@ -619,6 +620,45 @@ class Amhorti_Admin {
                     }
                 });
             });
+            
+            // Edit schedule handler
+            $(document).on('click', '.edit-schedule', function() {
+                var btn = $(this);
+                var scheduleId = btn.data('id');
+                var currentDay = btn.data('day');
+                var currentStart = btn.data('start');
+                var currentEnd = btn.data('end');
+                var currentSlots = btn.data('slots');
+                
+                var newDay = prompt('Jour de la semaine (lundi, mardi, etc.):', currentDay);
+                if (!newDay) return;
+                
+                var newStart = prompt('Heure de début (HH:MM):', currentStart.substring(0, 5));
+                if (!newStart) return;
+                
+                var newEnd = prompt('Heure de fin (HH:MM):', currentEnd.substring(0, 5));
+                if (!newEnd) return;
+                
+                var newSlots = prompt('Nombre de créneaux (1-10):', currentSlots);
+                if (!newSlots) return;
+                
+                $.post(ajaxurl, {
+                    action: 'amhorti_admin_update_schedule',
+                    schedule_id: scheduleId,
+                    day_of_week: newDay.toLowerCase(),
+                    time_start: newStart,
+                    time_end: newEnd,
+                    slot_count: parseInt(newSlots),
+                    nonce: $('#amhorti_admin_nonce').val()
+                }, function(response) {
+                    if (response.success) {
+                        alert('Horaire modifié avec succès !');
+                        location.reload();
+                    } else {
+                        alert('Erreur : ' + response.data);
+                    }
+                });
+            });
         });
         </script>
         <?php
@@ -823,6 +863,7 @@ class Amhorti_Admin {
                     <td><?php echo esc_html($schedule->time_end); ?></td>
                     <td><?php echo esc_html($schedule->slot_count); ?></td>
                     <td>
+                        <button class="button edit-schedule" data-id="<?php echo esc_attr($schedule->id); ?>" data-day="<?php echo esc_attr($schedule->day_of_week); ?>" data-start="<?php echo esc_attr($schedule->time_start); ?>" data-end="<?php echo esc_attr($schedule->time_end); ?>" data-slots="<?php echo esc_attr($schedule->slot_count); ?>">Modifier</button>
                         <button class="button button-link-delete delete-schedule" data-id="<?php echo esc_attr($schedule->id); ?>">Supprimer</button>
                     </td>
                 </tr>
@@ -953,6 +994,50 @@ class Amhorti_Admin {
             wp_send_json_success();
         } else {
             wp_send_json_error('Échec de l\'ajout de l\'horaire');
+        }
+    }
+    
+    /**
+     * AJAX handler for updating schedules
+     */
+    public function ajax_update_schedule() {
+        check_ajax_referer('amhorti_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_amhorti')) {
+            wp_die('Unauthorized');
+        }
+        
+        $schedule_id = intval($_POST['schedule_id']);
+        $day_of_week = sanitize_text_field($_POST['day_of_week']);
+        $time_start = sanitize_text_field($_POST['time_start']);
+        $time_end = sanitize_text_field($_POST['time_end']);
+        $slot_count = intval($_POST['slot_count']);
+        
+        // Validate day
+        $valid_days = array('lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche');
+        if (!in_array($day_of_week, $valid_days)) {
+            wp_send_json_error('Jour invalide');
+            return;
+        }
+        
+        // Validate time format (HH:MM or HH:MM:SS)
+        if (!preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $time_start) || !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $time_end)) {
+            wp_send_json_error('Format d\'heure invalide');
+            return;
+        }
+        
+        // Validate slot count
+        if ($slot_count < 1 || $slot_count > 10) {
+            wp_send_json_error('Nombre de créneaux invalide (1-10)');
+            return;
+        }
+        
+        $success = $this->database->update_schedule($schedule_id, $day_of_week, $time_start, $time_end, $slot_count);
+        
+        if ($success) {
+            wp_send_json_success();
+        } else {
+            wp_send_json_error('Échec de la mise à jour de l\'horaire');
         }
     }
 }
