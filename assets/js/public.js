@@ -39,6 +39,26 @@
                     $(this).blur();
                 }
             });
+            
+            // Action icon clicks (+ for signup, - for delete)
+            $(document).on('click', '.amhorti-icon', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                var $icon = $(this);
+                if ($icon.is(':disabled') || $icon.hasClass('amhorti-processing')) {
+                    return;
+                }
+                
+                var action = $icon.data('action');
+                var $cell = $icon.closest('.booking-cell');
+                
+                if (action === 'signup') {
+                    self.quickSignup($cell, $icon);
+                } else if (action === 'delete') {
+                    self.quickDelete($cell, $icon);
+                }
+            });
         },
         
         switchSheet: function(sheetId) {
@@ -203,6 +223,99 @@
                     $(this).remove();
                 });
             }, 5000);
+        },
+        
+        quickSignup: function($cell, $icon) {
+            var self = this;
+            
+            // Prevent double clicks
+            $icon.addClass('amhorti-processing').prop('disabled', true);
+            
+            // Request auto-label from server and save
+            var data = {
+                action: 'amhorti_quick_signup',
+                sheet_id: this.currentSheet,
+                date: $cell.data('date'),
+                time_start: $cell.data('time-start'),
+                time_end: $cell.data('time-end'),
+                slot_number: $cell.data('slot'),
+                version: $cell.data('version') || 0,
+                nonce: amhorti_ajax.nonce
+            };
+            
+            $cell.addClass('saving');
+            
+            $.ajax({
+                url: amhorti_ajax.ajax_url,
+                type: 'POST',
+                data: data,
+                success: function(response) {
+                    if (response.success) {
+                        // Update cell with new booking data
+                        $cell.text(response.data.booking_text);
+                        $cell.data('version', response.data.version);
+                        $cell.data('booking-id', response.data.id);
+                        $cell.data('booking-user-id', response.data.user_id);
+                        
+                        // Refresh to update action buttons
+                        self.loadTable();
+                    } else {
+                        self.showMessage('Erreur: ' + (response.data.message || response.data), 'error');
+                        $icon.removeClass('amhorti-processing').prop('disabled', false);
+                        $cell.removeClass('saving');
+                    }
+                },
+                error: function() {
+                    self.showMessage('Erreur réseau lors de l\'inscription', 'error');
+                    $icon.removeClass('amhorti-processing').prop('disabled', false);
+                    $cell.removeClass('saving');
+                }
+            });
+        },
+        
+        quickDelete: function($cell, $icon) {
+            var self = this;
+            var bookingId = $cell.data('booking-id');
+            
+            if (!bookingId) {
+                return;
+            }
+            
+            // Prevent double clicks
+            $icon.addClass('amhorti-processing').prop('disabled', true);
+            
+            $cell.addClass('saving');
+            
+            $.ajax({
+                url: amhorti_ajax.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'amhorti_delete_booking',
+                    booking_id: bookingId,
+                    nonce: amhorti_ajax.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Clear cell content and reset data
+                        $cell.text('');
+                        $cell.data('version', 0);
+                        $cell.data('booking-id', '');
+                        $cell.data('booking-user-id', '');
+                        
+                        // Refresh to update action buttons
+                        self.loadTable();
+                    } else {
+                        self.showMessage('Erreur: ' + (response.data.message || response.data), 'error');
+                        $icon.removeClass('amhorti-processing').prop('disabled', false);
+                        $cell.removeClass('saving');
+                    }
+                },
+                error: function() {
+                    self.showMessage('Erreur réseau lors de la suppression', 'error');
+                    $icon.removeClass('amhorti-processing').prop('disabled', false);
+                    $cell.removeClass('saving');
+                }
+            });
         }
     };
     
