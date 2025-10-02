@@ -134,6 +134,7 @@
                 time_end: cell.data('time-end'),
                 slot_number: cell.data('slot'),
                 booking_text: cell.text().trim(),
+                version: cell.data('version') || 0,
                 nonce: amhorti_ajax.nonce
             };
             
@@ -146,13 +147,21 @@
                 data: data,
                 success: function(response) {
                     if (response.success) {
+                        // Update version for future saves
+                        cell.data('version', response.data.version);
+                        cell.data('booking-id', response.data.id);
                         cell.addClass('saved').removeClass('saving');
                         setTimeout(function() {
                             cell.removeClass('saved');
                         }, 1000);
                     } else {
-                        self.showMessage('Error saving: ' + response.data, 'error');
-                        cell.removeClass('saving');
+                        // Check if it's a conflict error
+                        if (response.data && response.data.conflict) {
+                            self.handleConflict(cell, response.data.message);
+                        } else {
+                            self.showMessage('Error saving: ' + response.data, 'error');
+                            cell.removeClass('saving');
+                        }
                     }
                 },
                 error: function() {
@@ -160,6 +169,22 @@
                     cell.removeClass('saving');
                 }
             });
+        },
+        
+        handleConflict: function(cell, message) {
+            var self = this;
+            cell.removeClass('saving');
+            cell.addClass('conflict');
+            
+            // Show conflict message with option to reload or override
+            var conflictMsg = message + '. Voulez-vous recharger la page pour voir les dernières modifications ?';
+            if (confirm(conflictMsg)) {
+                // Reload the table to get latest data
+                self.loadTable();
+            } else {
+                // Let user try again (will use updated version from reload)
+                cell.removeClass('conflict');
+            }
         },
         
         formatDate: function(date) {
@@ -201,6 +226,10 @@
             .booking-cell.saved {
                 background: #d4edda !important;
                 border-color: #28a745 !important;
+            }
+            .booking-cell.conflict {
+                background: #f8d7da !important;
+                border-color: #dc3545 !important;
             }
         `)
         .appendTo('head');

@@ -3,7 +3,7 @@
  * Plugin Name: Amhorti Schedule
  * Plugin URI: https://github.com/enji76200-del/Plugin-Amhorti
  * Description: A WordPress plugin that creates an Excel-like scheduling table with multiple sheets for booking time slots.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Amhorti
  * License: GPL v2 or later
  * Text Domain: amhorti-schedule
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 // Define plugin constants
 define('AMHORTI_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AMHORTI_PLUGIN_PATH', plugin_dir_path(__FILE__));
-define('AMHORTI_VERSION', '1.0.0');
+define('AMHORTI_VERSION', '1.1.0');
 
 // Include required files
 require_once AMHORTI_PLUGIN_PATH . 'includes/class-amhorti-schedule.php';
