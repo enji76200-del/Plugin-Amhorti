@@ -55,6 +55,7 @@ class Amhorti_Database {
             sort_order int(11) DEFAULT 0,
             days_config text DEFAULT NULL,
             day_columns text DEFAULT NULL,
+            day_column_headers text DEFAULT NULL,
             allow_beyond_7_days tinyint(1) DEFAULT 0,
             max_booking_days int(11) DEFAULT 7,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
@@ -132,6 +133,12 @@ class Amhorti_Database {
         $col6 = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_sheets} LIKE %s", 'day_columns'));
         if (!$col6) {
             $wpdb->query("ALTER TABLE {$this->table_sheets} ADD COLUMN day_columns TEXT DEFAULT NULL");
+        }
+
+        // Add day_column_headers to sheets if missing
+        $col7 = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_sheets} LIKE %s", 'day_column_headers'));
+        if (!$col7) {
+            $wpdb->query("ALTER TABLE {$this->table_sheets} ADD COLUMN day_column_headers TEXT DEFAULT NULL");
         }
 
         // Disable any legacy global schedules (sheet_id IS NULL) to enforce per-sheet schedules only

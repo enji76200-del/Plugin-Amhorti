@@ -576,7 +576,7 @@ class Amhorti_Admin {
                                             $val = isset($day_columns[$day_key]) ? max(1, intval($day_columns[$day_key])) : 1; ?>
                                             <tr>
                                                 <td style="width:160px;"><?php echo esc_html($day_label); ?></td>
-                                                <td><input type="number" min="1" max="10" name="day_columns[<?php echo esc_attr($day_key); ?>]" value="<?php echo esc_attr($val); ?>" class="small-text" /></td>
+                                                <td><input type="number" min="1" max="10" name="day_columns[<?php echo esc_attr($day_key); ?>]" value="<?php echo esc_attr($val); ?>" class="small-text day-columns-input" data-day="<?php echo esc_attr($day_key); ?>" /></td>
                                             </tr>
                                         <?php endforeach; ?>
                                         </tbody>
@@ -668,6 +668,7 @@ class Amhorti_Admin {
         
         <script>
         jQuery(document).ready(function($) {
+            // Lors de la sauvegarde, inclure les entêtes par jour/colonne
             $('.amhorti-sheet-config-form').on('submit', function(e) {
                 e.preventDefault();
                 var form = $(this);
@@ -684,6 +685,19 @@ class Amhorti_Admin {
                     if(val < 1) val = 1;
                     dayColumns[key] = val;
                 });
+
+                // Entêtes par colonne
+                var dayHeaders = {};
+                form.find('.amhorti-day-headers').each(function(){
+                    var day = $(this).data('day');
+                    var headers = {};
+                    $(this).find('input[name^="day_column_headers[""]').each(function(){
+                        var idx = parseInt($(this).data('col-index'),10) || 0;
+                        var val = ($(this).val() || '').trim();
+                        if(idx > 0 && val.length){ headers[idx] = val; }
+                    });
+                    if(Object.keys(headers).length){ dayHeaders[day] = headers; }
+                });
                 
                 var data = {
                     action: 'amhorti_admin_update_sheet',
@@ -693,6 +707,7 @@ class Amhorti_Admin {
                     allow_beyond_7_days: form.find('input[name="allow_beyond_7_days"]').is(':checked') ? 1 : 0,
                     max_booking_days: form.find('input[name="max_booking_days"]').val(),
                     day_columns: dayColumns,
+                    day_column_headers: dayHeaders,
                     nonce: form.find('#amhorti_admin_nonce').val()
                 };
                 
@@ -766,6 +781,31 @@ class Amhorti_Admin {
                     if(resp.success){ location.reload(); }
                     else { alert('Erreur: '+resp.data); }
                 });
+            });
+            // Ajustement dynamique du nombre d'inputs d'entêtes selon le nombre de colonnes
+            $(document).on('change', '.day-columns-input', function(){
+                var day = $(this).data('day');
+                var count = parseInt($(this).val(), 10) || 1;
+                if(count < 1) count = 1;
+                var headersContainer = $(this).closest('.card').find('.amhorti-day-headers[data-day="'+day+'"] .header-inputs');
+                if(headersContainer.length === 0){ return; }
+                var existing = headersContainer.find('input[data-col-index]').length;
+                if(existing < count){
+                    for(var i = existing + 1; i <= count; i++){
+                        var $input = $('<input>', {
+                            type: 'text',
+                            name: 'day_column_headers['+day+']['+i+']',
+                            'data-col-index': i,
+                            placeholder: 'Entête colonne '+i,
+                            class: 'regular-text'
+                        }).css({maxWidth:'220px', marginRight:'6px', marginBottom:'6px'});
+                        headersContainer.append($input);
+                    }
+                } else if(existing > count){
+                    for(var j = existing; j > count; j--){
+                        headersContainer.find('input[data-col-index="'+j+'"]').last().remove();
+                    }
+                }
             });
         });
         </script>
@@ -1020,6 +1060,22 @@ class Amhorti_Admin {
                 $day_columns[$k] = max(1, intval($v));
             }
         }
+
+        // Optional: day column headers per day/column index
+        $day_column_headers = array();
+        if (isset($_POST['day_column_headers']) && is_array($_POST['day_column_headers'])) {
+            foreach ($_POST['day_column_headers'] as $day => $arr) {
+                $day_key = sanitize_text_field($day);
+                $day_column_headers[$day_key] = array();
+                if (is_array($arr)) {
+                    foreach ($arr as $idx => $text) {
+                        $idx_int = intval($idx);
+                        // wp_unslash before sanitize to properly handle quotes
+                        $day_column_headers[$day_key][$idx_int] = sanitize_text_field(wp_unslash($text));
+                    }
+                }
+            }
+        }
         
         $result = $wpdb->update(
             $table_sheets,
@@ -1028,7 +1084,8 @@ class Amhorti_Admin {
                 'days_config' => json_encode($active_days),
                 'allow_beyond_7_days' => $allow_beyond_7_days,
                 'max_booking_days' => $max_booking_days,
-                'day_columns' => json_encode($day_columns)
+                'day_columns' => json_encode($day_columns),
+                'day_column_headers' => json_encode($day_column_headers)
             ),
             array('id' => $sheet_id)
         );

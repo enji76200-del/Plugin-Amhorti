@@ -545,15 +545,44 @@ class Amhorti_Public {
         <table class="amhorti-schedule-table">
             <thead>
                 <tr>
-                    <th class="time-header">Horaires</th>
+                    <th class="time-header" rowspan="2">Horaires</th>
                     <?php foreach ($display_dates as $date): ?>
                         <?php 
                         $day_name = date('l', strtotime($date));
-                        $french_day = ucfirst($french_days[$day_name]);
+                        $french_day_key = $french_days[$day_name];
+                        $french_day_label = ucfirst($french_day_key);
                         $formatted_date = date('d/m', strtotime($date));
+                        // Column count for this day
+                        $day_columns_conf = array();
+                        if ($sheet_config && !empty($sheet_config->day_columns)) {
+                            $day_columns_conf = json_decode($sheet_config->day_columns, true) ?: array();
+                        }
+                        $column_count = isset($day_columns_conf[$french_day_key]) ? max(1, intval($day_columns_conf[$french_day_key])) : 1;
                         ?>
-                        <th class="date-header"><?php echo $french_day . ' ' . $formatted_date; ?></th>
+                        <th class="date-header" colspan="<?php echo intval($column_count); ?>"><?php echo $french_day_label . ' ' . $formatted_date; ?></th>
                     <?php endforeach; ?>
+                </tr>
+                <tr>
+                    <?php 
+                    // Render the per-column headers row
+                    $headers_conf = array();
+                    if ($sheet_config && !empty($sheet_config->day_column_headers)) {
+                        $headers_conf = json_decode($sheet_config->day_column_headers, true) ?: array();
+                    }
+                    foreach ($display_dates as $date):
+                        $day_name = date('l', strtotime($date));
+                        $french_day_key = $french_days[$day_name];
+                        $day_columns_conf = array();
+                        if ($sheet_config && !empty($sheet_config->day_columns)) {
+                            $day_columns_conf = json_decode($sheet_config->day_columns, true) ?: array();
+                        }
+                        $column_count = isset($day_columns_conf[$french_day_key]) ? max(1, intval($day_columns_conf[$french_day_key])) : 1;
+                        $headers_for_day = isset($headers_conf[$french_day_key]) && is_array($headers_conf[$french_day_key]) ? $headers_conf[$french_day_key] : array();
+                        for ($i = 1; $i <= $column_count; $i++):
+                            $label = isset($headers_for_day[$i]) ? $headers_for_day[$i] : '';
+                    ?>
+                        <th class="column-header"><?php echo esc_html($label); ?></th>
+                    <?php endfor; endforeach; ?>
                 </tr>
             </thead>
             <tbody>
