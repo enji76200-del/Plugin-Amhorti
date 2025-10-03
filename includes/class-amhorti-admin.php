@@ -90,7 +90,7 @@ class Amhorti_Admin {
                     <p>Ce plugin crée des tableaux de planification similaires à Excel avec plusieurs feuilles pour la réservation de créneaux horaires.</p>
                     
                     <h3>Comment utiliser :</h3>
-                                    <table>
+                    <ol>
                         <li>Utilisez le shortcode <code>[amhorti_schedule]</code> pour afficher le tableau de planification sur n'importe quelle page ou article</li>
                         <li>Utilisez le shortcode avec une feuille spécifique : <code>[amhorti_schedule sheet="1"]</code></li>
                         <li>Gérez vos feuilles et horaires en utilisant les éléments du menu</li>
@@ -101,34 +101,6 @@ class Amhorti_Admin {
                         <li>Interface similaire à Excel avec onglets pour différentes feuilles</li>
                         <li>Vue sur 7 jours à partir de la date actuelle</li>
                         <li>Cellules éditables pour les réservations d'utilisateurs</li>
-
-                                    <hr />
-                                    <h4>Entêtes par colonne (optionnel)</h4>
-                                    <p class="description">Saisissez un libellé sous le jour pour chaque colonne (ex&nbsp;: Équipe A, Équipe B). Laissez vide pour ne rien afficher.</p>
-                                    <?php $day_column_headers = !empty($sheet->day_column_headers) ? (array) json_decode($sheet->day_column_headers, true) : array(); ?>
-                                    <div class="amhorti-headers-grid">
-                                        <?php foreach ($days_options as $day_key => $day_label):
-                                            $col_count = isset($day_columns[$day_key]) ? max(1, intval($day_columns[$day_key])) : 1;
-                                            $headers_for_day = isset($day_column_headers[$day_key]) && is_array($day_column_headers[$day_key]) ? $day_column_headers[$day_key] : array();
-                                        ?>
-                                        <div class="amhorti-day-headers" data-day="<?php echo esc_attr($day_key); ?>" style="margin-bottom:8px;">
-                                            <div style="font-weight:600; width:160px; display:inline-block;">&nbsp;&nbsp;<?php echo esc_html($day_label); ?></div>
-                                            <div class="header-inputs" style="display:inline-block;">
-                                                <?php for ($i = 1; $i <= $col_count; $i++):
-                                                    $hval = isset($headers_for_day[$i]) ? $headers_for_day[$i] : '';
-                                                ?>
-                                                    <input type="text"
-                                                           name="day_column_headers[<?php echo esc_attr($day_key); ?>][<?php echo esc_attr($i); ?>]"
-                                                           data-col-index="<?php echo esc_attr($i); ?>"
-                                                           value="<?php echo esc_attr($hval); ?>"
-                                                           placeholder="Entête colonne <?php echo esc_attr($i); ?>"
-                                                           class="regular-text"
-                                                           style="max-width:220px; margin-right:6px; margin-bottom:6px;" />
-                                                <?php endfor; ?>
-                                            </div>
-                                        </div>
-                                        <?php endforeach; ?>
-                                    </div>
                         <li>Nettoyage automatique des anciennes réservations (14 jours)</li>
                         <li>Design responsive pour mobile et desktop</li>
                         <li>Réservations limitées aux 7 prochains jours</li>
@@ -609,6 +581,34 @@ class Amhorti_Admin {
                                         <?php endforeach; ?>
                                         </tbody>
                                     </table>
+
+                                    <hr />
+                                    <h4>Entêtes par colonne (optionnel)</h4>
+                                    <p class="description">Saisissez un libellé sous le jour pour chaque colonne (ex&nbsp;: Équipe A, Équipe B). Laissez vide pour ne rien afficher.</p>
+                                    <?php $day_column_headers = !empty($sheet->day_column_headers) ? (array) json_decode($sheet->day_column_headers, true) : array(); ?>
+                                    <div class="amhorti-headers-grid">
+                                        <?php foreach ($days_options as $day_key => $day_label):
+                                            $col_count = isset($day_columns[$day_key]) ? max(1, intval($day_columns[$day_key])) : 1;
+                                            $headers_for_day = isset($day_column_headers[$day_key]) && is_array($day_column_headers[$day_key]) ? $day_column_headers[$day_key] : array();
+                                        ?>
+                                        <div class="amhorti-day-headers" data-day="<?php echo esc_attr($day_key); ?>" style="margin-bottom:8px;">
+                                            <div style="font-weight:600; width:160px; display:inline-block;">&nbsp;&nbsp;<?php echo esc_html($day_label); ?></div>
+                                            <div class="header-inputs" style="display:inline-block;">
+                                                <?php for ($i = 1; $i <= $col_count; $i++):
+                                                    $hval = isset($headers_for_day[$i]) ? $headers_for_day[$i] : '';
+                                                ?>
+                                                    <input type="text"
+                                                           name="day_column_headers[<?php echo esc_attr($day_key); ?>][<?php echo esc_attr($i); ?>]"
+                                                           data-col-index="<?php echo esc_attr($i); ?>"
+                                                           value="<?php echo esc_attr($hval); ?>"
+                                                           placeholder="Entête colonne <?php echo esc_attr($i); ?>"
+                                                           class="regular-text"
+                                                           style="max-width:220px; margin-right:6px; margin-bottom:6px;" />
+                                                <?php endfor; ?>
+                                            </div>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 </td>
                             </tr>
                         </table>
