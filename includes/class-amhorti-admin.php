@@ -719,7 +719,7 @@ class Amhorti_Admin {
                 form.find('.amhorti-day-headers').each(function(){
                     var day = $(this).data('day');
                     var headers = {};
-                    $(this).find('input[name^="day_column_headers[""]').each(function(){
+                    $(this).find('input[name^="day_column_headers["]').each(function(){
                         var idx = parseInt($(this).data('col-index'),10) || 0;
                         var val = ($(this).val() || '').trim();
                         if(idx > 0 && val.length){ headers[idx] = val; }
@@ -736,15 +736,24 @@ class Amhorti_Admin {
                     max_booking_days: form.find('input[name="max_booking_days"]').val(),
                     day_columns: dayColumns,
                     day_column_headers: dayHeaders,
-                    nonce: form.find('#amhorti_admin_nonce').val()
+                    nonce: form.find('input[name="amhorti_admin_nonce"]').val()
                 };
                 
-                $.post(ajaxurl, data, function(response) {
-                    if (response.success) {
+                $.ajax({
+                    url: ajaxurl,
+                    method: 'POST',
+                    dataType: 'json',
+                    data: data
+                }).done(function(response){
+                    if (response && response.success) {
                         alert('Configuration sauvegardée avec succès !');
                     } else {
-                        alert('Erreur : ' + response.data);
+                        var msg = (response && response.data) ? response.data : 'Réponse invalide du serveur';
+                        alert('Erreur : ' + msg);
                     }
+                }).fail(function(xhr){
+                    var msg = (xhr.responseJSON && xhr.responseJSON.data) ? xhr.responseJSON.data : (xhr.responseText || 'Erreur réseau');
+                    alert('Erreur AJAX (' + xhr.status + ') : ' + msg);
                 });
             });
             
@@ -777,20 +786,29 @@ class Amhorti_Admin {
             $(document).on('submit', '.amhorti-copy-day-form', function(e){
                 e.preventDefault();
                 var form = $(this);
-                $.post(ajaxurl, {
-                    action: 'amhorti_admin_copy_day_schedules',
-                    sheet_id: form.data('sheet-id'),
-                    from_day: form.find('select[name="from_day"]').val(),
-                    to_day: form.find('select[name="to_day"]').val(),
-                    replace: form.find('input[name="replace"]').is(':checked') ? 1 : 0,
-                    nonce: form.find('#amhorti_admin_nonce').val()
-                }, function(resp){
-                    if(resp.success){
+                $.ajax({
+                    url: ajaxurl,
+                    method: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'amhorti_admin_copy_day_schedules',
+                        sheet_id: form.data('sheet-id'),
+                        from_day: form.find('select[name="from_day"]').val(),
+                        to_day: form.find('select[name="to_day"]').val(),
+                        replace: form.find('input[name="replace"]').is(':checked') ? 1 : 0,
+                        nonce: form.find('input[name="amhorti_admin_nonce"]').val()
+                    }
+                }).done(function(resp){
+                    if(resp && resp.success){
                         alert('Copie terminée. Ajoutés: '+(resp.data.added||0)+', ignorés (doublons): '+(resp.data.skipped||0));
                         location.reload();
                     } else {
-                        alert('Erreur: '+resp.data);
+                        var msg = (resp && resp.data) ? resp.data : 'Réponse invalide du serveur';
+                        alert('Erreur: ' + msg);
                     }
+                }).fail(function(xhr){
+                    var msg = (xhr.responseJSON && xhr.responseJSON.data) ? xhr.responseJSON.data : (xhr.responseText || 'Erreur réseau');
+                    alert('Erreur AJAX (' + xhr.status + ') : ' + msg);
                 });
             });
 
@@ -801,13 +819,22 @@ class Amhorti_Admin {
                 var ids = [];
                 container.find('.schedule-checkbox:checked').each(function(){ ids.push($(this).val()); });
                 if(ids.length === 0){ alert('Aucun horaire sélectionné'); return; }
-                $.post(ajaxurl, {
-                    action: 'amhorti_admin_bulk_delete_schedules',
-                    schedule_ids: ids,
-                    nonce: $('#amhorti_admin_nonce').val()
-                }, function(resp){
-                    if(resp.success){ location.reload(); }
-                    else { alert('Erreur: '+resp.data); }
+                var nonceVal = container.find('input[name="amhorti_admin_nonce"]').first().val();
+                $.ajax({
+                    url: ajaxurl,
+                    method: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'amhorti_admin_bulk_delete_schedules',
+                        schedule_ids: ids,
+                        nonce: nonceVal
+                    }
+                }).done(function(resp){
+                    if(resp && resp.success){ location.reload(); }
+                    else { var msg = (resp && resp.data) ? resp.data : 'Réponse invalide du serveur'; alert('Erreur: ' + msg); }
+                }).fail(function(xhr){
+                    var msg = (xhr.responseJSON && xhr.responseJSON.data) ? xhr.responseJSON.data : (xhr.responseText || 'Erreur réseau');
+                    alert('Erreur AJAX (' + xhr.status + ') : ' + msg);
                 });
             });
             // Ajustement dynamique du nombre d'inputs d'entêtes selon le nombre de colonnes
