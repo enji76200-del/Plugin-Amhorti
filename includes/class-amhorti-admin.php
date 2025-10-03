@@ -565,6 +565,22 @@ class Amhorti_Admin {
                                         </label>
                                         <span class="description">(>= 7, ex: 30, 60, 365)</span>
                                     </p>
+
+                                    <hr />
+                                    <h4>Colonnes supplémentaires par jour</h4>
+                                    <p class="description">Définissez le nombre de colonnes par jour pour cette feuille (1 par défaut). Exemple: Dimanche = 2 pour deux colonnes chaque dimanche.</p>
+                                    <?php $day_columns = !empty($sheet->day_columns) ? (array) json_decode($sheet->day_columns, true) : array(); ?>
+                                    <table>
+                                        <tbody>
+                                        <?php foreach ($days_options as $day_key => $day_label):
+                                            $val = isset($day_columns[$day_key]) ? max(1, intval($day_columns[$day_key])) : 1; ?>
+                                            <tr>
+                                                <td style="width:160px;"><?php echo esc_html($day_label); ?></td>
+                                                <td><input type="number" min="1" max="10" name="day_columns[<?php echo esc_attr($day_key); ?>]" value="<?php echo esc_attr($val); ?>" class="small-text" /></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
                                 </td>
                             </tr>
                         </table>
@@ -660,6 +676,14 @@ class Amhorti_Admin {
                 form.find('input[name="active_days[]"]:checked').each(function() {
                     activeDays.push($(this).val());
                 });
+                var dayColumns = {};
+                form.find('input[name^="day_columns["]').each(function(){
+                    var name = $(this).attr('name');
+                    var key = name.substring(name.indexOf('[')+1, name.indexOf(']'));
+                    var val = parseInt($(this).val(),10) || 1;
+                    if(val < 1) val = 1;
+                    dayColumns[key] = val;
+                });
                 
                 var data = {
                     action: 'amhorti_admin_update_sheet',
@@ -667,7 +691,8 @@ class Amhorti_Admin {
                     sheet_name: form.find('input[name="sheet_name"]').val(),
                     active_days: activeDays,
                     allow_beyond_7_days: form.find('input[name="allow_beyond_7_days"]').is(':checked') ? 1 : 0,
-            max_booking_days: form.find('input[name="max_booking_days"]').val(),
+                    max_booking_days: form.find('input[name="max_booking_days"]').val(),
+                    day_columns: dayColumns,
                     nonce: form.find('#amhorti_admin_nonce').val()
                 };
                 
@@ -985,9 +1010,16 @@ class Amhorti_Admin {
         
         $sheet_id = intval($_POST['sheet_id']);
         $sheet_name = sanitize_text_field($_POST['sheet_name']);
-    $active_days = isset($_POST['active_days']) ? $_POST['active_days'] : array();
-    $allow_beyond_7_days = isset($_POST['allow_beyond_7_days']) ? intval($_POST['allow_beyond_7_days']) : 0;
-    $max_booking_days = isset($_POST['max_booking_days']) ? max(7, intval($_POST['max_booking_days'])) : 7;
+        $active_days = isset($_POST['active_days']) ? $_POST['active_days'] : array();
+        $allow_beyond_7_days = isset($_POST['allow_beyond_7_days']) ? intval($_POST['allow_beyond_7_days']) : 0;
+        $max_booking_days = isset($_POST['max_booking_days']) ? max(7, intval($_POST['max_booking_days'])) : 7;
+        $day_columns = array();
+        if (isset($_POST['day_columns']) && is_array($_POST['day_columns'])) {
+            foreach ($_POST['day_columns'] as $k=>$v) {
+                $k = sanitize_text_field($k);
+                $day_columns[$k] = max(1, intval($v));
+            }
+        }
         
         $result = $wpdb->update(
             $table_sheets,
@@ -995,7 +1027,8 @@ class Amhorti_Admin {
                 'name' => $sheet_name,
                 'days_config' => json_encode($active_days),
                 'allow_beyond_7_days' => $allow_beyond_7_days,
-                'max_booking_days' => $max_booking_days
+                'max_booking_days' => $max_booking_days,
+                'day_columns' => json_encode($day_columns)
             ),
             array('id' => $sheet_id)
         );

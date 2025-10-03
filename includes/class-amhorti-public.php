@@ -530,7 +530,8 @@ class Amhorti_Public {
         foreach ($dates as $date) {
             $date_bookings = $this->database->get_bookings($sheet_id, $date);
             foreach ($date_bookings as $booking) {
-                $key = $date . '_' . $booking->time_start . '_' . $booking->time_end . '_' . $booking->slot_number;
+                $col_index = isset($booking->column_index) ? intval($booking->column_index) : 1;
+                $key = $date . '_' . $booking->time_start . '_' . $booking->time_end . '_' . $booking->slot_number . '_' . $col_index;
                 $bookings[$key] = array(
                     'text' => $booking->booking_text,
                     'version' => isset($booking->version) ? $booking->version : 1,
@@ -591,6 +592,12 @@ class Amhorti_Public {
                             <?php 
                             $day_name = date('l', strtotime($date));
                             $french_day = $french_days[$day_name];
+                            // Column count for this day
+                            $day_columns = array();
+                            if ($sheet_config && !empty($sheet_config->day_columns)) {
+                                $day_columns = json_decode($sheet_config->day_columns, true) ?: array();
+                            }
+                            $column_count = isset($day_columns[$french_day]) ? max(1, intval($day_columns[$french_day])) : 1;
                             
                             $day_schedule = $this->database->get_schedule_for_sheet_day($sheet_id, $french_day);
                             
@@ -617,36 +624,36 @@ class Amhorti_Public {
                                 $max_date = date('Y-m-d', strtotime('+' . $max_days . ' days', strtotime($today)));
                                 $is_valid_date = ($date >= $today && $date <= $max_date);
                                 
-                                $booking_key = $date . '_' . $start_time . '_' . $end_time . '_' . $slot_num;
-                                $booking_data = isset($bookings[$booking_key]) ? $bookings[$booking_key] : null;
-                                $booking_text = $booking_data ? $booking_data['text'] : '';
-                                $booking_version = $booking_data ? $booking_data['version'] : 0;
-                                $booking_id = $booking_data ? $booking_data['id'] : 0;
-                                
-                                $cell_class = 'booking-cell';
-                                $contenteditable = 'false';
-                                
-                                if ($is_valid_date) {
-                                    $cell_class .= ' editable';
-                                    $contenteditable = 'true';
-                                } else {
-                                    $cell_class .= ' disabled';
+                                // Render N columns for this day
+                                for ($col_idx = 1; $col_idx <= $column_count; $col_idx++) {
+                                    $booking_key = $date . '_' . $start_time . '_' . $end_time . '_' . $slot_num . '_' . $col_idx;
+                                    $booking_data = isset($bookings[$booking_key]) ? $bookings[$booking_key] : null;
+                                    $booking_text = $booking_data ? $booking_data['text'] : '';
+                                    $booking_version = $booking_data ? $booking_data['version'] : 0;
+                                    $booking_id = $booking_data ? $booking_data['id'] : 0;
+                                    
+                                    $cell_class = 'booking-cell';
+                                    $contenteditable = 'false';
+                                    if ($is_valid_date) { $cell_class .= ' editable'; $contenteditable = 'true'; }
+                                    else { $cell_class .= ' disabled'; }
+                                    ?>
+                                    <td class="<?php echo $cell_class; ?>" 
+                                        data-date="<?php echo esc_attr($date); ?>"
+                                        data-time-start="<?php echo esc_attr($start_time); ?>"
+                                        data-time-end="<?php echo esc_attr($end_time); ?>"
+                                        data-slot="<?php echo esc_attr($slot_num); ?>"
+                                        data-column-index="<?php echo esc_attr($col_idx); ?>"
+                                        data-version="<?php echo esc_attr($booking_version); ?>"
+                                        data-booking-id="<?php echo esc_attr($booking_id); ?>"
+                                        contenteditable="<?php echo $contenteditable; ?>"
+                                        spellcheck="false"><?php echo esc_html($booking_text); ?></td>
+                                    <?php
                                 }
-                                ?>
-                                <td class="<?php echo $cell_class; ?>" 
-                                    data-date="<?php echo esc_attr($date); ?>"
-                                    data-time-start="<?php echo esc_attr($start_time); ?>"
-                                    data-time-end="<?php echo esc_attr($end_time); ?>"
-                                    data-slot="<?php echo esc_attr($slot_num); ?>"
-                                    data-version="<?php echo esc_attr($booking_version); ?>"
-                                    data-booking-id="<?php echo esc_attr($booking_id); ?>"
-                                    contenteditable="<?php echo $contenteditable; ?>"
-                                    spellcheck="false"><?php echo esc_html($booking_text); ?></td>
-                                <?php
                             } else {
-                                ?>
-                                <td class="booking-cell disabled"></td>
-                                <?php
+                                // Render disabled cells to keep table shape
+                                for ($col_idx = 1; $col_idx <= $column_count; $col_idx++) {
+                                    echo '<td class="booking-cell disabled"></td>';
+                                }
                             }
                             ?>
                         <?php endforeach; ?>
@@ -686,6 +693,7 @@ class Amhorti_Public {
         $slot_number = intval($_POST['slot_number']);
         $booking_text = sanitize_text_field($_POST['booking_text']);
         $expected_version = isset($_POST['version']) ? intval($_POST['version']) : null;
+        $column_index = isset($_POST['column_index']) ? max(1, intval($_POST['column_index'])) : 1;
         
         // Validate date is not in the past or more than N days in the future
         $booking_date = strtotime($date);
@@ -710,7 +718,7 @@ class Amhorti_Public {
             return;
         }
         
-        $result = $this->database->save_booking($sheet_id, $date, $time_start, $time_end, $slot_number, $booking_text, $expected_version);
+    $result = $this->database->save_booking($sheet_id, $date, $time_start, $time_end, $slot_number, $booking_text, $expected_version, $column_index);
         
         if (isset($result['success']) && $result['success']) {
             wp_send_json_success(array(

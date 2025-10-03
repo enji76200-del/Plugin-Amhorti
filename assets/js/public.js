@@ -135,6 +135,7 @@
                 time_start: cell.data('time-start'),
                 time_end: cell.data('time-end'),
                 slot_number: cell.data('slot'),
+                column_index: cell.data('column-index') || 1,
                 booking_text: cell.text().trim(),
                 version: cell.data('version') || 0,
                 nonce: amhorti_ajax.nonce

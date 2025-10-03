@@ -33,6 +33,7 @@ class Amhorti_Database {
             time_start time NOT NULL,
             time_end time NOT NULL,
             slot_number int(3) NOT NULL,
+            column_index int(3) NOT NULL DEFAULT 1,
             booking_text varchar(255) DEFAULT '',
             user_ip varchar(45) DEFAULT '',
             user_id bigint(20) DEFAULT NULL,
@@ -41,6 +42,7 @@ class Amhorti_Database {
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY idx_sheet_date (sheet_id, date),
+            KEY idx_sheet_date_col (sheet_id, date, column_index),
             KEY idx_created_at (created_at),
             KEY idx_user_id (user_id)
         ) $charset_collate;";
@@ -52,6 +54,7 @@ class Amhorti_Database {
             is_active tinyint(1) DEFAULT 1,
             sort_order int(11) DEFAULT 0,
             days_config text DEFAULT NULL,
+            day_columns text DEFAULT NULL,
             allow_beyond_7_days tinyint(1) DEFAULT 0,
             max_booking_days int(11) DEFAULT 7,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
@@ -116,6 +119,19 @@ class Amhorti_Database {
         $col4 = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_bookings} LIKE %s", 'version'));
         if (!$col4) {
             $wpdb->query("ALTER TABLE {$this->table_bookings} ADD COLUMN version INT(11) DEFAULT 1");
+        }
+
+        // Add column_index to bookings if missing
+        $col5 = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_bookings} LIKE %s", 'column_index'));
+        if (!$col5) {
+            $wpdb->query("ALTER TABLE {$this->table_bookings} ADD COLUMN column_index INT(3) NOT NULL DEFAULT 1");
+            $wpdb->query("ALTER TABLE {$this->table_bookings} ADD KEY idx_sheet_date_col (sheet_id, date, column_index)");
+        }
+
+        // Add day_columns to sheets if missing
+        $col6 = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$this->table_sheets} LIKE %s", 'day_columns'));
+        if (!$col6) {
+            $wpdb->query("ALTER TABLE {$this->table_sheets} ADD COLUMN day_columns TEXT DEFAULT NULL");
         }
 
         // Disable any legacy global schedules (sheet_id IS NULL) to enforce per-sheet schedules only
@@ -188,7 +204,7 @@ class Amhorti_Database {
     /**
      * Save booking with optimistic concurrency control
      */
-    public function save_booking($sheet_id, $date, $time_start, $time_end, $slot_number, $booking_text, $expected_version = null) {
+    public function save_booking($sheet_id, $date, $time_start, $time_end, $slot_number, $booking_text, $expected_version = null, $column_index = 1) {
         global $wpdb;
         
         $user_ip = $_SERVER['REMOTE_ADDR'];
@@ -198,8 +214,8 @@ class Amhorti_Database {
         $existing = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT * FROM {$this->table_bookings} 
-                WHERE sheet_id = %d AND date = %s AND time_start = %s AND time_end = %s AND slot_number = %d",
-                $sheet_id, $date, $time_start, $time_end, $slot_number
+                WHERE sheet_id = %d AND date = %s AND time_start = %s AND time_end = %s AND slot_number = %d AND column_index = %d",
+                $sheet_id, $date, $time_start, $time_end, $slot_number, $column_index
             )
         );
         
@@ -236,6 +252,7 @@ class Amhorti_Database {
                     'time_start' => $time_start,
                     'time_end' => $time_end,
                     'slot_number' => $slot_number,
+                    'column_index' => $column_index,
                     'booking_text' => $booking_text,
                     'user_ip' => $user_ip,
                     'user_id' => $user_id,
