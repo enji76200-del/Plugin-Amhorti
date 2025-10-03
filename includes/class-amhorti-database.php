@@ -87,7 +87,7 @@ class Amhorti_Database {
         dbDelta($sql_schedules);
         dbDelta($sql_css_settings);
         
-        // Insert default data
+        // Insert default data (sheets only)
         $this->insert_default_data();
     }
 
@@ -117,6 +117,9 @@ class Amhorti_Database {
         if (!$col4) {
             $wpdb->query("ALTER TABLE {$this->table_bookings} ADD COLUMN version INT(11) DEFAULT 1");
         }
+
+        // Disable any legacy global schedules (sheet_id IS NULL) to enforce per-sheet schedules only
+        $wpdb->query("UPDATE {$this->table_schedules} SET is_active = 0 WHERE sheet_id IS NULL AND is_active = 1");
     }
     
     /**
@@ -140,80 +143,7 @@ class Amhorti_Database {
             }
         }
         
-        // Insert default schedules if they don't exist
-        $schedule_count = $wpdb->get_var("SELECT COUNT(*) FROM {$this->table_schedules}");
-        if ($schedule_count == 0) {
-            $default_schedules = array(
-                // Lundi
-                array('day_of_week' => 'lundi', 'time_start' => '06:00:00', 'time_end' => '07:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'lundi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
-                array('day_of_week' => 'lundi', 'time_start' => '08:30:00', 'time_end' => '10:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '10:00:00', 'time_end' => '11:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '11:30:00', 'time_end' => '13:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'lundi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'lundi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Mardi
-                array('day_of_week' => 'mardi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
-                array('day_of_week' => 'mardi', 'time_start' => '08:30:00', 'time_end' => '10:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '10:00:00', 'time_end' => '11:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '11:30:00', 'time_end' => '13:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mardi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'mardi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Mercredi
-                array('day_of_week' => 'mercredi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
-                array('day_of_week' => 'mercredi', 'time_start' => '08:30:00', 'time_end' => '10:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '10:00:00', 'time_end' => '11:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '11:30:00', 'time_end' => '13:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'mercredi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'mercredi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Jeudi
-                array('day_of_week' => 'jeudi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
-                array('day_of_week' => 'jeudi', 'time_start' => '08:30:00', 'time_end' => '10:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '10:00:00', 'time_end' => '11:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '11:30:00', 'time_end' => '13:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'jeudi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'jeudi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Vendredi
-                array('day_of_week' => 'vendredi', 'time_start' => '07:30:00', 'time_end' => '08:30:00', 'slot_count' => 3),
-                array('day_of_week' => 'vendredi', 'time_start' => '08:30:00', 'time_end' => '10:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '10:00:00', 'time_end' => '11:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '11:30:00', 'time_end' => '13:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'vendredi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'vendredi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Samedi
-                array('day_of_week' => 'samedi', 'time_start' => '13:00:00', 'time_end' => '14:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'samedi', 'time_start' => '14:30:00', 'time_end' => '16:00:00', 'slot_count' => 2),
-                array('day_of_week' => 'samedi', 'time_start' => '16:00:00', 'time_end' => '17:30:00', 'slot_count' => 2),
-                array('day_of_week' => 'samedi', 'time_start' => '17:30:00', 'time_end' => '19:00:00', 'slot_count' => 3),
-                array('day_of_week' => 'samedi', 'time_start' => '19:00:00', 'time_end' => '20:00:00', 'slot_count' => 3),
-                
-                // Dimanche - no slots by default
-            );
-            
-            foreach ($default_schedules as $schedule) {
-                $wpdb->insert($this->table_schedules, $schedule);
-            }
-        }
+        // Do NOT insert default schedules anymore. Horaires globaux supprimés.
     }
     
     /**
@@ -384,8 +314,7 @@ class Amhorti_Database {
      */
     public function get_schedule_for_sheet_day($sheet_id, $day_of_week) {
         global $wpdb;
-        
-        // First try to get sheet-specific schedules
+        // Only return sheet-specific schedules; no fallback to global
         $sheet_schedules = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$this->table_schedules} 
@@ -394,12 +323,6 @@ class Amhorti_Database {
                 $sheet_id, $day_of_week
             )
         );
-        
-        // If no sheet-specific schedules, fall back to global schedules
-        if (empty($sheet_schedules)) {
-            return $this->get_schedule_for_day($day_of_week);
-        }
-        
         return $sheet_schedules;
     }
 

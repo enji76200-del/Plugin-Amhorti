@@ -243,6 +243,24 @@ class Amhorti_Public {
             <?php else: ?><p>Aucun créneau.</p><?php endif; ?>
             <?php endforeach; ?>
         </div>
+        <div class="card">
+            <h2>Copier/Coller les Horaires (Jour → Jour)</h2>
+            <?php $sheets = $this->database->get_sheets(); $days_options = array('lundi'=>'Lundi','mardi'=>'Mardi','mercredi'=>'Mercredi','jeudi'=>'Jeudi','vendredi'=>'Vendredi','samedi'=>'Samedi','dimanche'=>'Dimanche'); ?>
+            <?php foreach ($sheets as $sheet): ?>
+                <h3><?php echo esc_html($sheet->name); ?></h3>
+                <form class="amhorti-copy-day-form-front" data-sheet-id="<?php echo esc_attr($sheet->id); ?>">
+                    <?php wp_nonce_field('amhorti_admin_nonce', 'amhorti_admin_nonce'); ?>
+                    <p>
+                        Depuis: <select name="from_day"><?php foreach($days_options as $k=>$l){ echo '<option value="'.esc_attr($k).'">'.esc_html($l).'</option>'; } ?></select>
+                        &nbsp;→&nbsp;
+                        Vers: <select name="to_day"><?php foreach($days_options as $k=>$l){ echo '<option value="'.esc_attr($k).'">'.esc_html($l).'</option>'; } ?></select>
+                        &nbsp;&nbsp;
+                        <label><input type="checkbox" name="replace" value="1" /> Remplacer</label>
+                        &nbsp;<button type="submit" class="button">Copier</button>
+                    </p>
+                </form>
+            <?php endforeach; ?>
+        </div>
         <script>
         (function($){
             $(document).on('submit', '#amhorti-add-schedule-form-front', function(e){
@@ -265,6 +283,22 @@ class Amhorti_Public {
                     schedule_id: $(this).data('id'),
                     nonce: $('.amhorti-admin-frontend').data('nonce')
                 }, function(resp){ if(resp.success){ location.reload(); } else { alert('Erreur: '+resp.data); } });
+            });
+            // Copy day schedules from frontend admin portal
+            $(document).on('submit', '.amhorti-copy-day-form-front', function(e){
+                e.preventDefault();
+                var form = $(this);
+                $.post(amhorti_admin_ajax.ajax_url, {
+                    action: 'amhorti_admin_copy_day_schedules',
+                    sheet_id: form.data('sheet-id'),
+                    from_day: form.find('select[name="from_day"]').val(),
+                    to_day: form.find('select[name="to_day"]').val(),
+                    replace: form.find('input[name="replace"]').is(':checked') ? 1 : 0,
+                    nonce: $('.amhorti-admin-frontend').data('nonce')
+                }, function(resp){
+                    if(resp.success){ alert('Copie terminée. Ajoutés: '+(resp.data.added||0)+', ignorés: '+(resp.data.skipped||0)); location.reload(); }
+                    else { alert('Erreur: '+resp.data); }
+                });
             });
         })(jQuery);
         </script>
@@ -549,7 +583,7 @@ class Amhorti_Public {
                     <tr class="time-row" data-time-start="<?php echo esc_attr($start_time); ?>" data-time-end="<?php echo esc_attr($end_time); ?>">
                         <?php if ($slot_num == 1): ?>
                         <td class="time-cell" rowspan="<?php echo $max_slots; ?>">
-                            <?php echo esc_html($display_time); ?>
+                            <span class="time-range"><?php echo esc_html($display_time); ?></span>
                         </td>
                         <?php endif; ?>
                         

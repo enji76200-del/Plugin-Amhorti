@@ -39,6 +39,8 @@
                     $(this).blur();
                 }
             });
+
+            // (bouton Modifier retiré du frontend)
         },
         
         switchSheet: function(sheetId) {
